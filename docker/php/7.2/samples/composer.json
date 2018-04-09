@@ -1,0 +1,7 @@
+{
+    "require": {
+        "friendsofphp/php-cs-fixer": "^2.11",
+        "squizlabs/php_codesniffer": "*",
+        "hirak/prestissimo": "^0.3"
+    }
+}

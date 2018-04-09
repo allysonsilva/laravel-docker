@@ -1,0 +1,57 @@
+version: '3.6'
+
+services:
+    webserver:
+        container_name: webserver
+        build:
+            context: ./nginx
+            dockerfile: Dockerfile
+        # network_mode: host (Only Linux)
+        ports:
+            - "8800:80"
+            - "8443:443"
+        networks:
+            - NetworkApp
+        depends_on:
+            - php72
+        restart: on-failure
+    php72:
+        container_name: php72
+        build:
+            context: ./php/7.2
+            dockerfile: Dockerfile
+            args:
+                INSTALL_PHP_AMQP: "false"
+                INSTALL_PHP_MONGO: "false"
+                INSTALL_PHP_IGBINARY: "false"
+                INSTALL_PHP_LZF: "false"
+                INSTALL_PHP_REDIS: "false"
+                INSTALL_PHP_SWOOLE: "false"
+                INSTALL_PHP_DS: "true"
+                INSTALL_PHP_REF: "true"
+                INSTALL_PHP_MEMINFO: "true"
+                INSTALL_PHP_SQLSRV: "true"
+                DEFAULT_USER: development
+        ports:
+            - "9001:9000"
+            - "9099:9099"
+            - "8001:8001"
+            - "8002:8002"
+        environment:
+            - WORKDIR=${REMOTE_SRC}
+        volumes:
+            # Used [:delegated] or [:cached] mode here on docker for MAC for faster disk I/O
+            - ${LOCAL_SRC}:${REMOTE_SRC}
+        networks:
+            - NetworkApp
+        tty: true
+        stdin_open: true
+        restart: on-failure
+        dns:
+            - 8.8.8.8
+            - 8.8.4.4
+
+networks:
+    NetworkApp:
+        driver: bridge
+        name: NetApp

@@ -1,0 +1,12 @@
+app
+bin
+*.md
+.env
+!README*.md
+.DS_Store
+docs/GITCOMMIT
+docs/GIT_BRANCH
+docs/VERSION
+docs/_build
+docs/_static
+docs/_templates
