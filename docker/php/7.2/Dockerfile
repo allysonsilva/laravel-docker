@@ -65,6 +65,8 @@ ENV PHP_EXTRA_BUILD_DEPS \
 # Extra packages, common
 ENV EXTRA_PACKAGES \
     git \
+    zip \
+    unzip \
     wget \
     vim
 
