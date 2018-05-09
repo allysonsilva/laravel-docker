@@ -79,7 +79,7 @@ ENV DEFAULT_PARAMETERS --no-install-recommends --no-install-suggests -y
 
 # https://github.com/krallin/tini
 # A tiny but valid `init` for containers
-ENV TINI_VERSION v0.17.0
+ENV TINI_VERSION v0.18.0
 
 #####
 # PHP
