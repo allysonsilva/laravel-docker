@@ -1,5 +1,10 @@
 FROM nginx:1.13
 
+# LABELS
+LABEL maintainer="Allyson Silva <contato@allyson.tech>"
+LABEL description="NGINX"
+LABEL version="1.0"
+
 # Pre generate some SSL
 # YOU SHOULD REPLACE WITH YOUR OWN CERT.
 # RUN openssl req -x509 -nodes -days 3650 \

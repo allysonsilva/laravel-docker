@@ -1,7 +1,9 @@
 FROM php:7.2-fpm
 
-# Repository/Image Maintainer
+# LABELS
 LABEL maintainer="Allyson Silva <contato@allyson.tech>"
+LABEL description="PHP"
+LABEL version="1.0"
 
 # Reset user to root to allow software install
 # USER root
