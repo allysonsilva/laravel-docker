@@ -156,6 +156,14 @@ If this was your app, to start local development you would:
  - You use `docker-compose` for local development only (docker-compose was never intended to be a production deployment tool anyway).
  - The `docker-compose.yml` is not meant for `docker stack deploy` in Docker Swarm, it's meant for happy local development.
 
+## Building only
+
+**PHP**
+
+```bash
+docker build --build-arg INSTALL_PHP_AMQP="true" --build-arg INSTALL_PHP_MONGO="true" --build-arg INSTALL_PHP_IGBINARY="true" --build-arg INSTALL_PHP_LZF="true" --build-arg INSTALL_PHP_REDIS="true" --build-arg INSTALL_PHP_SWOOLE="true" --build-arg INSTALL_PHP_DS="true" --build-arg INSTALL_PHP_REF="true" --build-arg INSTALL_PHP_MEMINFO="true" --build-arg INSTALL_PHP_SQLSRV="true" --tag allysonsilva/php:1.0 .
+```
+
 ## Contributing
 
 If you find an issue, or have a special wish not yet fulfilled, please [open an issue on GitHub](https://github.com/AllysonSilva/docker/issues) providing as many details as you can (the more you are specific about your problem, the easier it is for us to fix it).
