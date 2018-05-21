@@ -289,6 +289,17 @@ RUN if [ ${INSTALL_PHP_SQLSRV} = true ]; then \
     docker-php-ext-enable sqlsrv pdo_sqlsrv \
 ;fi
 
+# sudo tee /etc/php/7.2/mods-available/sqlsrv.ini >/dev/null <<EOF
+#     extension=sqlsrv.so
+#     extension=pdo_sqlsrv.so
+# EOF
+#
+# ln -s /etc/php/7.2/mods-available/sqlsrv.ini /etc/php/7.2/fpm/conf.d/20-sqlsrv.ini
+# ln -s /etc/php/7.2/mods-available/sqlsrv.ini /etc/php/7.2/cli/conf.d/20-sqlsrv.ini
+#
+# sudo echo "extension= pdo_sqlsrv.so" >> `php --ini | grep "Loaded Configuration" | sed -e "s|.*:\s*||"`
+# sudo echo "extension= sqlsrv.so" >> `php --ini | grep "Loaded Configuration" | sed -e "s|.*:\s*||"`
+
 ################
 # CONFIGURATIONS
 ################
