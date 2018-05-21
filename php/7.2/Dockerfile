@@ -173,7 +173,7 @@ RUN if [ ${INSTALL_PHP_AMQP} = true ]; then \
 # https://github.com/mongodb/mongo-php-library && composer require mongodb/mongodb
 ########
 ARG INSTALL_PHP_MONGO=false
-ENV PHP_MONGO_VERSION 1.4.2
+ENV PHP_MONGO_VERSION 1.4.3
 RUN if [ ${INSTALL_PHP_MONGO} = true ]; then \
     pecl install mongodb-${PHP_MONGO_VERSION} && \
     docker-php-ext-enable mongodb \
@@ -183,8 +183,9 @@ RUN if [ ${INSTALL_PHP_MONGO} = true ]; then \
 ## IGBINARY
 ########
 ARG INSTALL_PHP_IGBINARY=false
+ENV PHP_IGBINARY_VERSION 2.0.6
 RUN if [ ${INSTALL_PHP_IGBINARY} = true ]; then \
-    pecl install igbinary-devel && \
+    pecl install igbinary-${PHP_IGBINARY_VERSION} && \
     docker-php-ext-enable igbinary \
 ;fi
 
@@ -202,7 +203,7 @@ RUN if [ ${INSTALL_PHP_LZF} = true ]; then \
 # https://github.com/phpredis/phpredis
 ########
 ARG INSTALL_PHP_REDIS=false
-ENV PHP_REDIS_VERSION 4.0.0
+ENV PHP_REDIS_VERSION 4.0.2
 RUN if [ ${INSTALL_PHP_REDIS} = true ]; then \
     printf "yes \n no \n" | pecl install -o -f redis-${PHP_REDIS_VERSION} && \
     docker-php-ext-enable redis \
@@ -213,7 +214,7 @@ RUN if [ ${INSTALL_PHP_REDIS} = true ]; then \
 # https://github.com/swoole/swoole-src
 ########
 ARG INSTALL_PHP_SWOOLE=false
-ENV PHP_SWOOLE_VERSION 2.1.1
+ENV PHP_SWOOLE_VERSION 2.1.3
 RUN if [ ${INSTALL_PHP_SWOOLE} = true ]; then \
     pecl install swoole-${PHP_SWOOLE_VERSION} && \
     docker-php-ext-enable swoole \
