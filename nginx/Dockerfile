@@ -31,7 +31,7 @@ COPY ./config/mime.types /etc/nginx/mime.types
 #     CMD curl -f http://localhost/ping || exit 1
 
 # Expose webserver port
-EXPOSE 80 443 8080
+EXPOSE 80 443 8080 8800
 
 COPY ./docker-entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
