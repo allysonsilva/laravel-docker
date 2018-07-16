@@ -1,49 +1,190 @@
 version: '3.6'
 
 services:
+
+    # elasticsearch:
+    #     image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTICSEARCH_VERSION-6.3.1}
+    #     hostname: elasticsearch
+    #     container_name: elasticsearch
+    #     labels:
+    #         com.example.service: "ES"
+    #         com.example.description: "For searching and indexing data"
+    #     environment:
+    #         # - cluster.name=docker-cluster
+    #         # - bootstrap.memory_lock=true
+    #         # - "discovery.type=single-node"
+    #         - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    #     ulimits:
+    #         memlock:
+    #             soft: -1
+    #             hard: -1
+    #         nofile:
+    #             soft: 65536
+    #             hard: 65536
+    #     ports:
+    #         - "32788:9200"
+    #         - "32787:9300"
+    #     networks:
+    #         - NetworkApp
+    #     volumes:
+    #         - elasticsearchData:/usr/share/elasticsearch/data
+    #         - ./elastic/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+
+    # logstash:
+    #     image: docker.elastic.co/logstash/logstash:${LOGSTASH_VERSION-6.3.1}
+    #     hostname: logstash
+    #     container_name: logstash
+    #     labels:
+    #         com.example.service: "Logstash"
+    #         com.example.description: "For logging data"
+    #     volumes:
+    #         - ./elastic/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+    #         - ./elastic/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    #     ports:
+    #         - "50001:5000"
+    #     environment:
+    #         LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+    #     networks:
+    #         - NetworkApp
+    #     depends_on:
+    #         - elasticsearch
+
+    # kibana:
+    #     image: docker.elastic.co/kibana/kibana:${KIBANA_VERSION-6.3.1}
+    #     hostname: kibana
+    #     container_name: kibana
+    #     labels:
+    #         com.example.service: "Kibana"
+    #         com.example.description: "Data visualisation and for log aggregation"
+    #     # environment:
+    #     #     ELASTICSEARCH_URL: http://elasticsearch:32788
+    #     volumes:
+    #         - ./elastic/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+    #     ports:
+    #         - "56011:5601"
+    #     networks:
+    #         - NetworkApp
+    #     depends_on:
+    #         - elasticsearch
+
+    # # redis-cli -h 127.0.0.1 -p 63791 -a 'P5+Rbhq,%--8[]CA'
+    redis:
+        image: redis:4.0
+        hostname: redis
+        container_name: redis
+        deploy:
+            replicas: 5
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+                max_attempts: 3
+                window: 120s
+            resources:
+                limits:
+                    cpus: '0.50'
+                    memory: 50M
+                reservations:
+                    cpus: '0.25'
+                    memory: 20M
+        ports:
+            - "63791:6379"
+        volumes:
+            - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+            - redisData:/data
+        command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--appendonly", "yes"]
+        restart: always
+        networks:
+            - NetworkApp
+
+    # # mysql -h 127.0.0.1 -P 33061 -uhomestead -psecret
+    database:
+        image: mysql:5.7
+        hostname: database
+        container_name: database
+        command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --init-connect='SET NAMES utf8mb4;' --innodb-flush-log-at-trx-commit=0
+        volumes:
+            - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+            - mySQLData:/var/lib/mysql
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: homestead
+            MYSQL_USER: homestead
+            MYSQL_PASSWORD: secret
+        ports:
+            - "33061:3306"
+        restart: always
+        networks:
+            - NetworkApp
+
     webserver:
+        image: webserver:1.0
+        hostname: webserver
         container_name: webserver
         build:
             context: ./nginx
             dockerfile: Dockerfile
-        # network_mode: host (Only Linux)
         ports:
-            - "8800:80"
-            - "8443:443"
+            - "8080:80"
+            - "8083:443"
         networks:
             - NetworkApp
         depends_on:
-            - php72
+            - app
         restart: on-failure
-    php72:
-        container_name: php72
+        working_dir: ${REMOTE_SRC}
+        volumes:
+            - type: bind
+              source: ./nginx/config/servers/app.conf
+              target: /etc/nginx/conf.d/default.conf
+              read_only: true
+            - type: volume
+              source: localDataApp
+              target: ${REMOTE_SRC}
+        links:
+            - "app:php-fpm"
+
+    # # docker-compose exec app php artisan key:generate
+    # # docker-compose exec app php artisan migrate --seed
+    app:
+        image: app:latest
+        hostname: app
+        container_name: app
         build:
-            context: ./php/7.2
-            dockerfile: Dockerfile
+            context: ${LOCAL_SRC}
+            dockerfile: ./docker/php/Dockerfile
             args:
-                INSTALL_PHP_AMQP: "false"
-                INSTALL_PHP_MONGO: "false"
-                INSTALL_PHP_IGBINARY: "false"
-                INSTALL_PHP_LZF: "false"
-                INSTALL_PHP_REDIS: "false"
-                INSTALL_PHP_SWOOLE: "false"
-                INSTALL_PHP_DS: "true"
-                INSTALL_PHP_REF: "true"
-                INSTALL_PHP_MEMINFO: "true"
-                INSTALL_PHP_SQLSRV: "true"
-                DEFAULT_USER: development
+                DEFAULT_ENVIRONMENT: development
+                DEFAULT_USER: "app"
         ports:
             - "9001:9000"
             - "9099:9099"
-            - "8001:8001"
-            - "8002:8002"
+        working_dir: ${REMOTE_SRC}
         environment:
-            - WORKDIR=${REMOTE_SRC}
+            APP_ENV: local
+            CACHE_DRIVER: redis
+            SESSION_DRIVER: redis
+            QUEUE_DRIVER: redis
+            REDIS_PASSWORD: "P5+Rbhq,%--8[]CA"
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+            DB_HOST: database
+            DB_DATABASE: homestead
+            DB_USERNAME: homestead
+            DB_PASSWORD: secret
+            DB_PORT: 3306
+        depends_on:
+            - redis
+            - database
         volumes:
-            # Used [:delegated] or [:cached] mode here on docker for MAC for faster disk I/O
+            # # Used [:delegated] or [:cached] mode here on docker for MAC for faster disk I/O
             - ${LOCAL_SRC}:${REMOTE_SRC}
+            # - ./storage/app:/var/www/app/storage/app:ro
+            # - ./storage/logs:/var/www/app/storage/logs:ro
+            # - ./php/config/php.ini-production.ini:/usr/local/etc/php/php.ini:ro
+            # - ./php/config/extensions/opcache.ini:/usr/local/etc/php/conf.d/docker-php-ext-opcache.ini
+            # - ./php/config/extensions/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
         networks:
-            - NetworkApp
+            NetworkApp:
         tty: true
         stdin_open: true
         restart: on-failure
@@ -55,3 +196,15 @@ networks:
     NetworkApp:
         driver: bridge
         name: NetApp
+
+volumes:
+    elasticsearchData:
+        driver: local
+    mySQLData:
+    redisData:
+    localDataApp:
+        driver: local
+        driver_opts:
+            type: none
+            device: $PWD/${LOCAL_SRC}
+            o: bind

@@ -1,23 +1,23 @@
+# docker build -t app:1.0 -f Dockerfile.1.0 \
+#    --build-arg INSTALL_PHP_AMQP=true \
+#    --build-arg INSTALL_PHP_MONGO=true \
+#    --build-arg INSTALL_PHP_SWOOLE=true \
+#    --build-arg INSTALL_PHP_DS=true \
+#    --build-arg INSTALL_PHP_MEMINFO=true \
+#    --build-arg INSTALL_PHP_SQLSRV=true \
+#    .
 FROM php:7.2-fpm
-
-# LABELS
-LABEL maintainer="Allyson Silva <contato@allyson.tech>"
-LABEL description="PHP"
-LABEL version="1.0"
 
 # Reset user to root to allow software install
 # USER root
 
 # If an ARG instruction has a default value and if there is no value passed at build-time, the builder uses the default.
-ARG DEFAULT_USER=development
-ARG DEFAULT_USER_UID=1000
+ARG DEFAULT_USER=app
+ARG DEFAULT_USER_UID=1001
 # Unlike an ARG instruction, ENV values are always persisted in the built image.
-ENV DEFAULT_USER ${DEFAULT_USER:-development}
+ENV DEFAULT_USER ${DEFAULT_USER:-app}
 
 ENV WORKDIR ${WORKDIR:-/var/www/app}
-
-# Add our user and group first to make sure their IDs get assigned consistently, regardless of whatever dependencies get added
-# RUN groupadd -r ${DEFAULT_USER} && useradd -r -g ${DEFAULT_USER} ${DEFAULT_USER}
 
 # Terminal
 ENV TERM=xterm-256color \
@@ -28,8 +28,8 @@ COPY ./samples/bashrc /home/${DEFAULT_USER}/.bashrc
 COPY ./samples/composer.json /home/${DEFAULT_USER}/.composer/
 
 # Entrypoint
-COPY ./docker-entrypoint.sh /scripts/entrypoint.sh
-RUN chmod +x /scripts/entrypoint.sh
+COPY ./docker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 ##################################
 # Default php configurations values
@@ -51,6 +51,7 @@ ENV PHP_FPM_POOL_DIR ${PHP_INI_DIR}-fpm.d
 ENV PHP_EXTRA_BUILD_DEPS \
     sudo \
     gnupg \
+    g++ \
     # @see https://github.com/alanxz/rabbitmq-c
     librabbitmq-dev \
     libgd-dev \
@@ -62,26 +63,20 @@ ENV PHP_EXTRA_BUILD_DEPS \
     libgmp-dev \
     libtidy-dev \
     libxml2-dev \
+    zlib1g-dev \
     libssl-dev
 
 # Extra packages, common
 ENV EXTRA_PACKAGES \
     git \
+    openssh-client \
     zip \
     unzip \
     wget \
     vim
 
-#####
-# RUN
-#####
-
 # Common installation parameters
 ENV DEFAULT_PARAMETERS --no-install-recommends --no-install-suggests -y
-
-# https://github.com/krallin/tini
-# A tiny but valid `init` for containers
-ENV TINI_VERSION v0.18.0
 
 #####
 # PHP
@@ -104,15 +99,10 @@ RUN set -eux && \
         # Install PHP extensions
         ########
             docker-php-ext-install -j $(nproc) \
-                calendar \
-                exif \
-                dom \
-                tidy \
-                tokenizer \
                 mbstring \
                 json \
+                tokenizer \
                 gettext \
-                shmop \
                 gd \
                 bcmath \
                 intl \
@@ -122,39 +112,26 @@ RUN set -eux && \
                 pdo_mysql \
                 soap \
                 xsl \
-                xml \
-                zip \
                 sockets \
-                opcache && \
-            # https://github.com/docker-library/php/issues/443
-            pecl update-channels && \
-            ## XDEBUG
-            pecl install xdebug-2.6.0 && \
-            docker-php-ext-enable xdebug && \
-    # PHPUnit (Global) – The PHP Testing Framework
-    echo "---> PHPUnit – The PHP Testing Framework" && \
-    wget https://phar.phpunit.de/phpunit.phar -O /usr/local/bin/phpunit && \
-    chmod +x /usr/local/bin/phpunit && \
-    echo "---> Cleaning up" && \
-    rm -rf /tmp/* ~/.pearrc && \
-    apt-get clean -y && apt-get purge -y --autoremove && \
-    rm -rf /var/lib/apt/lists/* && \
-    rm -rf /usr/share/man && \
-    rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin && \
-    echo "---> Remove files default PHP-FPM" && \
-    rm ${PHP_INI_DIR}-fpm.conf.default && \
-    rm ${PHP_FPM_POOL_DIR}/www.conf.default && \
-    echo "---> Adding user to environment" && \
+                opcache \
+                xml \
+                zip && \
+        # https://github.com/docker-library/php/issues/443
+        pecl update-channels && \
+        echo "---> Cleaning up" && \
+        rm -rf /tmp/* ~/.pearrc && \
+        apt-get clean -y && apt-get purge -y --autoremove && \
+        rm -rf /var/lib/apt/lists/* && \
+        rm -rf /usr/share/man && \
+        rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin && \
+        echo "---> Remove files default PHP-FPM" && \
+        rm ${PHP_INI_DIR}-fpm.conf.default && \
+        rm ${PHP_FPM_POOL_DIR}/www.conf.default
+
+RUN set -eux && \
+    echo "---> Adding user to IMAGE" && \
     adduser --disabled-password --gecos '' --force-badname ${DEFAULT_USER} -u ${DEFAULT_USER_UID} && \
-    echo "${DEFAULT_USER} ALL = (ALL) NOPASSWD: ALL" >> /etc/sudoers && \
-    echo "---> Changing permissions" && \
-    mkdir -p ${WORKDIR} && \
-    chown -R ${DEFAULT_USER}:${DEFAULT_USER} /var/www && \
-    chown -R ${DEFAULT_USER}:${DEFAULT_USER} /usr/local/lib/php && \
-    chown -R ${DEFAULT_USER}:${DEFAULT_USER} /home/${DEFAULT_USER} && \
-    echo "---> TINI" && \
-    wget -O /tini https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static && \
-    chmod +x /tini
+    echo "${DEFAULT_USER} ALL = (ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 ########
 ## AMQP
@@ -173,7 +150,7 @@ RUN if [ ${INSTALL_PHP_AMQP} = true ]; then \
 # https://github.com/mongodb/mongo-php-library && composer require mongodb/mongodb
 ########
 ARG INSTALL_PHP_MONGO=false
-ENV PHP_MONGO_VERSION 1.4.3
+ENV PHP_MONGO_VERSION 1.5.1
 RUN if [ ${INSTALL_PHP_MONGO} = true ]; then \
     pecl install mongodb-${PHP_MONGO_VERSION} && \
     docker-php-ext-enable mongodb \
@@ -182,17 +159,17 @@ RUN if [ ${INSTALL_PHP_MONGO} = true ]; then \
 ########
 ## IGBINARY
 ########
-ARG INSTALL_PHP_IGBINARY=false
-ENV PHP_IGBINARY_VERSION 2.0.6
+ARG INSTALL_PHP_IGBINARY=true
+ENV PHP_IGBINARY_VERSION 2.0.7
 RUN if [ ${INSTALL_PHP_IGBINARY} = true ]; then \
     pecl install igbinary-${PHP_IGBINARY_VERSION} && \
     docker-php-ext-enable igbinary \
 ;fi
 
-########
+####
 ## LZF
-########
-ARG INSTALL_PHP_LZF=false
+####
+ARG INSTALL_PHP_LZF=true
 RUN if [ ${INSTALL_PHP_LZF} = true ]; then \
     pecl install lzf && \
     docker-php-ext-enable lzf \
@@ -202,8 +179,8 @@ RUN if [ ${INSTALL_PHP_LZF} = true ]; then \
 ## REDIS
 # https://github.com/phpredis/phpredis
 ########
-ARG INSTALL_PHP_REDIS=false
-ENV PHP_REDIS_VERSION 4.0.2
+ARG INSTALL_PHP_REDIS=true
+ENV PHP_REDIS_VERSION 4.1.0
 RUN if [ ${INSTALL_PHP_REDIS} = true ]; then \
     printf "yes \n no \n" | pecl install -o -f redis-${PHP_REDIS_VERSION} && \
     docker-php-ext-enable redis \
@@ -213,12 +190,13 @@ RUN if [ ${INSTALL_PHP_REDIS} = true ]; then \
 ## SWOOLE
 # https://github.com/swoole/swoole-src
 ########
-ARG INSTALL_PHP_SWOOLE=false
-ENV PHP_SWOOLE_VERSION 2.1.3
-RUN if [ ${INSTALL_PHP_SWOOLE} = true ]; then \
-    pecl install swoole-${PHP_SWOOLE_VERSION} && \
-    docker-php-ext-enable swoole \
-;fi
+# RUN apt-get update && apt-get install ${DEFAULT_PARAMETERS} openssl libnghttp2-dev
+# ARG INSTALL_PHP_SWOOLE=false
+# ENV PHP_SWOOLE_VERSION 4.0.2
+# RUN if [ ${INSTALL_PHP_SWOOLE} = true ]; then \
+#     printf "yes \n yes \n yes \n yes \n yes \n yes \n no \n" | pecl install swoole-${PHP_SWOOLE_VERSION} && \
+#     docker-php-ext-enable swoole \
+# ;fi
 
 ########
 ## DATA STRUCTURES (DS)
@@ -226,26 +204,10 @@ RUN if [ ${INSTALL_PHP_SWOOLE} = true ]; then \
 # https://github.com/php-ds/extension
 ########
 ARG INSTALL_PHP_DS=false
-ENV PHP_DS_VERSION 1.2.5
+ENV PHP_DS_VERSION 1.2.6
 RUN if [ ${INSTALL_PHP_DS} = true ]; then \
     pecl install ds-${PHP_DS_VERSION} && \
     docker-php-ext-enable ds \
-;fi
-
-########
-## PHP REF
-# https://github.com/pinepain/php-ref
-########
-ARG INSTALL_PHP_REF=false
-ENV PHP_REF_VERSION v0.6.0
-RUN if [ ${INSTALL_PHP_REF} = true ]; then \
-    FILE='/tmp/php-ref.tar.gz'; \
-    FOLDER='/tmp/php-ref'; \
-    curl -L -o $FILE "https://github.com/pinepain/php-ref/archive/${PHP_REF_VERSION}.tar.gz" && \
-    mkdir -p $FOLDER && tar -C $FOLDER -zxvf $FILE --strip-components=1 && \
-    docker-php-ext-configure $FOLDER --enable-ref && \
-    docker-php-ext-install $FOLDER && \
-    rm -rf /tmp/* \
 ;fi
 
 ########
@@ -283,6 +245,11 @@ RUN if [ ${INSTALL_PHP_SQLSRV} = true ]; then \
     apt-get update -yqq && \
     # @see https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server#debian-8-and-9
     ACCEPT_EULA=Y apt-get install msodbcsql17 ${DEFAULT_PARAMETERS} && \
+    # optional: for bcp and sqlcmd
+    # ACCEPT_EULA=Y apt-get install mssql-tools && \
+    # echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bash_profile
+    # echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc
+    # source ~/.bashrc
     # optional: for unixODBC development headers
     apt-get install unixodbc-dev ${DEFAULT_PARAMETERS} && \
     ## SQLSRV + PDO_SQLSRV
@@ -306,14 +273,19 @@ RUN if [ ${INSTALL_PHP_SQLSRV} = true ]; then \
 ################
 
 # EXTENSIONS
-COPY ./config/extensions/xdebug.ini ${PHP_INI_SCAN_DIR}/docker-php-ext-xdebug.ini
-COPY ./config/extensions/opcache.ini ${PHP_INI_SCAN_DIR}/docker-php-ext-opcache.ini
+# COPY ./config/extensions/xdebug.ini ${PHP_INI_SCAN_DIR}/docker-php-ext-xdebug.ini
+# COPY ./config/extensions/opcache.ini ${PHP_INI_SCAN_DIR}/docker-php-ext-opcache.ini
+
 # PHP-FPM
 COPY ./config/fpm/php-fpm.conf ${PHP_INI_DIR}-fpm.conf
 # PHP-FPM-POOL-WWW
 COPY ./config/fpm/www.conf ${PHP_FPM_POOL_DIR}/www.conf
 # PHP-INI
-COPY ./config/php.ini-development.ini ${PHP_INI_DIR}/php.ini
+COPY ./config/php.ini-production.ini ${PHP_INI_DIR}/php.ini
+
+# Allows server env (from docker-compose or cloudformation)
+# to be available via dotEnv (and $_SERVER) in php-fpm.
+# RUN sed -e 's/;clear_env = no/clear_env = no/' -i ${PHP_FPM_POOL_DIR}/www.conf
 
 # Verify PHP
 RUN set -x && \
@@ -325,24 +297,66 @@ RUN set -x && \
 # RUN ln -sf /dev/stdout /var/log/php-fpm/access.log && \
 #     ln -sf /dev/stderr /var/log/php-fpm/error.log
 
+RUN set -eux && \
+    echo "---> Changing permissions" && \
+    mkdir -p ${WORKDIR} && \
+    chown -R ${DEFAULT_USER}:${DEFAULT_USER} /var/www && \
+    chown -R ${DEFAULT_USER}:${DEFAULT_USER} /usr/local/lib/php && \
+    chown -R ${DEFAULT_USER}:${DEFAULT_USER} /home/${DEFAULT_USER}
+
+####
+# Node.JS
+####
+RUN curl -sL https://deb.nodesource.com/setup_10.x -o nodesource_setup.sh
+RUN bash nodesource_setup.sh
+RUN apt-get install nodejs -y
+RUN npm install npm@6.1.0 -g
+RUN npm install pm2 -g
+
+RUN command -v node
+RUN command -v npm
+RUN command -v pm2
+
 # Define the running user
 USER ${DEFAULT_USER}
 
+#####
 # COMPOSER
+#####
+
 RUN set -x && \
-    sudo apt-get update -yqq && \
     curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/usr/local/bin --filename=composer && \
     composer global install --prefer-dist --no-dev --no-suggest --optimize-autoloader && \
     composer clear-cache
+
+####
+# PHPUnit
+####
+RUN wget https://phar.phpunit.de/phpunit.phar
+RUN chmod +x phpunit.phar
+RUN sudo mv phpunit.phar /usr/local/bin/phpunit
+RUN command -v phpunit
 
 # Application directory
 WORKDIR "$WORKDIR"
 
 # Environment variables
-ENV PATH="/home/${DEFAULT_USER}/.composer/vendor/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ENV PATH="$PATH:/home/${DEFAULT_USER}/.composer/vendor/bin"
 
-# ENTRYPOINT
-ENTRYPOINT ["/tini", "--", "/scripts/entrypoint.sh"]
+# Display versions installed
+RUN php -v
+RUN composer --version
+RUN phpunit --version
+RUN node -v
+RUN npm -v
+RUN pm2 -v
 
-EXPOSE 9000 9099 8001 8002
+############
+# Entrypoint
+############
+
+ENTRYPOINT ["/entrypoint.sh"]
+
+EXPOSE 9000 9099
+
 CMD ["/usr/local/sbin/php-fpm", "-y", "/usr/local/etc/php-fpm.conf", "--allow-to-run-as-root", "--nodaemonize"]

@@ -1,138 +1,154 @@
-# My Docker Environment ⚡️
+# My Docker Environment 🐳
 
 > This is a personal collection of Docker tools and images.
 
 ## Install Docker
 
-- [Ubuntu](https://docs.docker.com/engine/installation/linux/ubuntu/)
-- [Windows](https://docs.docker.com/docker-for-windows/install/)
-- [MacOS](https://docs.docker.com/docker-for-mac/install/)
+-   [Ubuntu](https://docs.docker.com/engine/installation/linux/ubuntu/)
+-   [Windows](https://docs.docker.com/docker-for-windows/install/)
+-   [MacOS](https://docs.docker.com/docker-for-mac/install/)
 
 > Download and install [Docker](https://docs.docker.com/engine/installation/) (**>= 18.03**) for your platform and you also have to install [Docker compose](https://docs.docker.com/compose/install/) (**>= 1.20.0**).
 
 ## Project structure
 
 ```
-├── app
-└── docker
-    ├── docker-compose.yml
-    ├── nginx
-    │   ├── Dockerfile
-    │   ├── config
-    │   │   ├── fastcgi.conf
-    │   │   ├── mime.types
-    │   │   ├── nginx.conf
-    │   │   └── servers
-    │   │       └── app.conf
-    │   └── docker-entrypoint.sh
-    └── php
-        └── 7.2
-            ├── Dockerfile
-            ├── config
-            │   ├── extensions
-            │   │   ├── opcache.ini
-            │   │   └── xdebug.ini
-            │   ├── fpm
-            │   │   ├── php-fpm.conf
-            │   │   └── www.conf
-            │   └── php.ini-development.ini
-            ├── docker-entrypoint.sh
-            └── samples
-                ├── bashrc
-                └── composer.json
+├── docker-compose.yml
+├── elastic
+│   ├── elasticsearch.yml
+│   ├── kibana.yml
+│   └── logstash
+│       ├── config
+│       │   └── logstash.yml
+│       └── pipeline
+│           └── logstash.conf
+├── mysql
+│   └── my.cnf
+├── nginx
+│   ├── Dockerfile
+│   ├── config
+│   │   ├── fastcgi.conf
+│   │   ├── mime.types
+│   │   ├── nginx.conf
+│   │   └── servers
+│   │       └── app.conf
+│   └── docker-entrypoint.sh
+├── php
+│   ├── Dockerfile
+│   ├── Dockerfile.1.0
+│   ├── config
+│   │   ├── extensions
+│   │   │   ├── opcache.ini
+│   │   │   └── xdebug.ini
+│   │   ├── fpm
+│   │   │   ├── php-fpm.conf
+│   │   │   └── www.conf
+│   │   ├── php.ini-development.ini
+│   │   └── php.ini-production.ini
+│   ├── docker-entrypoint.sh
+│   └── samples
+│       ├── bashrc
+│       └── composer.json
+├── redis
+│   └── redis.conf
+├── ssh
+│   ├── id_rsa
+│   └── id_rsa.pub
+└── storage
 ```
 
 ## Softwares included:
 
-- *`Nginx`* 1.13.x
-- *`PHP`* 7.2.x [**Installed PHP extensions**] (The following modules and extensions have been enabled,
-in addition to those you can already find in the [official PHP image](https://hub.docker.com/r/_/php/))
-    - **`amqp`**
-    - `bcmath`
-    - `calendar`
-    - `Core`
-    - `ctype`
-    - `curl`
-    - `date`
-    - `dom`
-    - **`ds`**
-    - `exif`
-    - `fileinfo`
-    - `filter`
-    - `ftp`
-    - `gd`
-    - `gettext`
-    - `gmp`
-    - `hash`
-    - `iconv`
-    - **`igbinary`**
-    - `intl`
-    - `json`
-    - `libxml`
-    - **`lzf`**
-    - `mbstring`
-    - **`meminfo`**
-    - **`mongodb`**
-    - `mysqli`
-    - `mysqlnd`
-    - `openssl`
-    - `pcntl`
-    - `pcre`
-    - `PDO`
-    - `pdo_mysql`
-    - `pdo_sqlite`
-    - **`pdo_sqlsrv`**
-    - `Phar`
-    - `posix`
-    - `readline`
-    - **`redis`**
-    - **`ref`**
-    - `Reflection`
-    - `session`
-    - `shmop`
-    - `SimpleXML`
-    - `soap`
-    - `sockets`
-    - `sodium`
-    - `SPL`
-    - `sqlite3`
-    - **`sqlsrv`**
-    - `standard`
-    - **`swoole`**
-    - `tidy`
-    - `tokenizer`
-    - **`xdebug`**
-    - `xml`
-    - `xmlreader`
-    - `xmlwriter`
-    - `xsl`
-    - `zip`
-    - `zlib`
-    - **`Xdebug`**
-    - **`Zend OPcache`**
+-   _`Nginx`_ 1.15.x
+-   _`MySQL`_ 5.7
+-   _`Redis`_ 4.x
+-   [_`Logstash`_ | _`Kibana`_ | _`ElasticSearch`_] 6.3.x
+-   _`PHP`_ 7.2.x [**Installed PHP extensions**] (The following modules and extensions have been enabled, in addition to those you can already find in the [official PHP image](https://hub.docker.com/r/_/php/))
+    -   **`amqp`**
+    -   `bcmath`
+    -   `calendar`
+    -   `Core`
+    -   `ctype`
+    -   `curl`
+    -   `date`
+    -   `dom`
+    -   **`ds`**
+    -   `exif`
+    -   `fileinfo`
+    -   `filter`
+    -   `ftp`
+    -   `gd`
+    -   `gettext`
+    -   `gmp`
+    -   `hash`
+    -   `iconv`
+    -   **`igbinary`**
+    -   `intl`
+    -   `json`
+    -   `libxml`
+    -   **`lzf`**
+    -   `mbstring`
+    -   **`meminfo`**
+    -   **`mongodb`**
+    -   `mysqli`
+    -   `mysqlnd`
+    -   `openssl`
+    -   `pcntl`
+    -   `pcre`
+    -   `PDO`
+    -   `pdo_mysql`
+    -   `pdo_sqlite`
+    -   **`pdo_sqlsrv`**
+    -   `Phar`
+    -   `posix`
+    -   `readline`
+    -   **`redis`**
+    -   `Reflection`
+    -   `session`
+    -   `shmop`
+    -   `SimpleXML`
+    -   `soap`
+    -   `sockets`
+    -   `sodium`
+    -   `SPL`
+    -   `sqlite3`
+    -   **`sqlsrv`**
+    -   `standard`
+    -   **`swoole`**
+    -   `tidy`
+    -   `tokenizer`
+    -   **`xdebug`**
+    -   `xml`
+    -   `xmlreader`
+    -   `xmlwriter`
+    -   `xsl`
+    -   `zip`
+    -   `zlib`
+    -   **`Xdebug`**
+    -   **`Zend OPcache`**
 
 You are able to find all installed PHP extensions by running `php -m` inside your workspace.
 
 ### Available tools
 
-*Composer* - https://getcomposer.org/
+_Composer_ - https://getcomposer.org/
 
 > Composer helps you declare, manage and install dependencies of PHP projects.
 
-*PHPUnit – The PHP Testing Framework* - https://phpunit.de/
+_PHPUnit – The PHP Testing Framework_ - https://phpunit.de/
 
 > PHPUnit is a programmer-oriented testing framework for PHP. It is an instance of the xUnit architecture for unit testing frameworks.
 
-*prestissimo* - https://github.com/hirak/prestissimo
+_prestissimo_ - https://github.com/hirak/prestissimo
 
 > composer parallel install plugin.
 
-*PHP Coding Standards Fixer* - http://cs.sensiolabs.org/
+_PHP Coding Standards Fixer_ - http://cs.sensiolabs.org/
 
 > The PHP Coding Standards Fixer tool fixes most issues in your code when you want to follow the PHP coding standards
-as defined in the PSR-1 and PSR-2 documents and many more.
+> as defined in the PSR-1 and PSR-2 documents and many more.
 
-*PHP CodeSniffer* - https://github.com/squizlabs/PHP_CodeSniffer
+_PHP CodeSniffer_ - https://github.com/squizlabs/PHP_CodeSniffer
 
 > PHP_CodeSniffer is a set of two PHP scripts; the main `phpcs` script that tokenizes PHP, JavaScript and CSS files to detect violations of a defined coding standard, and a second `phpcbf` script to automatically correct coding standard violations. PHP_CodeSniffer is an essential development tool that ensures your code remains clean and consistent.
 
@@ -140,28 +156,100 @@ as defined in the PSR-1 and PSR-2 documents and many more.
 
 If this was your app, to start local development you would:
 
- - Running `docker-compose up` is all you need. It will:
- - Build custom local image enabled for development.
- - Start container from that image with ports `8800:80` and `8443:443` open (on localhost or docker-machine).
- - Mounts the pwd to the app dir in container.
- - If you need other services like databases, just add to compose file and they'll be added to the custom Docker network for this app on `up`.
- - If you need to add packages to Composer, npm, bower, etc. then stop docker-compose and run `docker-compose up --build` to ensure image is updated.
- - Be sure to use `docker-compose down` to cleanup after your done dev'ing.
+-   Download the repository and put it in the root of the project
+-   Create the base image 1.0 from DockerFile.1.0 - PHP
+    ```bash
+    cd docker/php && \
+        docker build -t app:1.0 -f Dockerfile.1.0 \
+            --build-arg INSTALL_PHP_AMQP=true \
+            --build-arg INSTALL_PHP_MONGO=true \
+            --build-arg INSTALL_PHP_SWOOLE=true \
+            --build-arg INSTALL_PHP_DS=true \
+            --build-arg INSTALL_PHP_MEMINFO=true \
+            --build-arg INSTALL_PHP_SQLSRV=true \
+        .
+    ```
+-   Running `docker-compose up` is all you need. It will:
+-   Build custom local image enabled for development.
+-   Start container from that image with ports `8080:80` and `8083:443` open (on localhost or docker-machine).
+-   Mounts the pwd to the app dir in container.
+-   If you need other services like databases, just add to compose file and they'll be added to the custom Docker network for this app on `up`.
+-   If you need to add packages to Composer, npm, node, etc. then stop docker-compose and run `docker-compose up --build` to ensure image is updated.
+-   Be sure to use `docker-compose down` to cleanup after your done dev'ing.
 
 ## Assumptions
 
- - You have Docker and Docker-Compose installed (Docker for Mac, Docker for Windows, get.docker.com and manual Compose installed for Linux).
- - You want to use Docker for local development (i.e. never need to install php or npm on host) and have dev and prod Docker images be as close as possible.
- - You don't want to lose fidelity in your dev workflow. You want a easy environment setup, using local editors, debug/inspect, local code repo, while web server runs in a container.
- - You use `docker-compose` for local development only (docker-compose was never intended to be a production deployment tool anyway).
- - The `docker-compose.yml` is not meant for `docker stack deploy` in Docker Swarm, it's meant for happy local development.
+-   You have Docker and Docker-Compose installed (Docker for Mac, Docker for Windows, get.docker.com and manual Compose installed for Linux).
+-   You want to use Docker for local development (i.e. never need to install php or npm on host) and have dev and prod Docker images be as close as possible.
+-   You don't want to lose fidelity in your dev workflow. You want a easy environment setup, using local editors, debug/inspect, local code repo, while web server runs in a container.
+-   You use `docker-compose` for local development only (docker-compose was never intended to be a production deployment tool anyway).
+-   The `docker-compose.yml` is not meant for `docker stack deploy` in Docker Swarm, it's meant for happy local development.
 
 ## Building only
 
 **PHP**
 
 ```bash
-docker build --build-arg INSTALL_PHP_AMQP="true" --build-arg INSTALL_PHP_MONGO="true" --build-arg INSTALL_PHP_IGBINARY="true" --build-arg INSTALL_PHP_LZF="true" --build-arg INSTALL_PHP_REDIS="true" --build-arg INSTALL_PHP_SWOOLE="true" --build-arg INSTALL_PHP_DS="true" --build-arg INSTALL_PHP_REF="true" --build-arg INSTALL_PHP_MEMINFO="true" --build-arg INSTALL_PHP_SQLSRV="true" --tag allysonsilva/php:1.0 .
+cd docker/php &&
+    docker build -t app:1.0 -f Dockerfile.1.0 \
+        --build-arg INSTALL_PHP_AMQP=true \
+        --build-arg INSTALL_PHP_MONGO=true \
+        --build-arg INSTALL_PHP_SWOOLE=true \
+        --build-arg INSTALL_PHP_DS=true \
+        --build-arg INSTALL_PHP_MEMINFO=true \
+        --build-arg INSTALL_PHP_SQLSRV=true \
+    .
+```
+
+**Nginx**
+
+```bash
+cd docker/nginx && docker build -t webserver:1.0 -f Dockerfile .
+```
+
+## Helpers commands
+
+_Access NGINX container_
+
+```bash
+docker exec -t -i nginx /bin/bash
+```
+
+_Access PHP/APP container_
+
+```bash
+docker exec -t -i app /bin/bash
+```
+
+_Install PHP Modules_
+
+```bash
+docker exec -t -i app /bin/bash
+# After
+$ /usr/local/bin/docker-php-ext-configure sockets
+$ /usr/local/bin/docker-php-ext-install sockets
+```
+
+_Accessing Redis Container from Local Computer_
+
+```bash
+redis-cli -h 127.0.0.1 -p 63791 -a 'P5+Rbhq,%--8[]CA'
+```
+
+_Accessing MySQL Container from Local Computer_
+
+```bash
+mysql -h 127.0.0.1 -P 33061 -uhomestead -psecret
+```
+
+_Running Assorted Commands_
+
+```bash
+docker-compose exec app php artisan key:generate
+docker-compose exec app php artisan migrate --seed
+
+docker-compose exec app composer install
+docker-compose exec app npm install
 ```
 
 ## Contributing

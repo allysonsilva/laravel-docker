@@ -1,7 +1,6 @@
 app
 bin
 *.md
-.env
 !README*.md
 .DS_Store
 docs/GITCOMMIT
