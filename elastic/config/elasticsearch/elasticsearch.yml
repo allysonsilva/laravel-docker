@@ -1,0 +1,59 @@
+# @see https://github.com/elastic/stack-docker/blob/master/config/elasticsearch/elasticsearch.yml
+
+# A node can only join a cluster when it shares its cluster.name with all the other nodes in the cluster.
+# The default name is elasticsearch, but you should change it to an appropriate name which describes the purpose of the cluster.
+# Make sure that you don’t reuse the same cluster names in different environments, otherwise you might end up with nodes joining the wrong cluster.
+# name your cluster, all nodes in the cluster must have same cluster name
+cluster.name: cluster-elasticsearch
+
+# By default, Elasticsearch binds to loopback addresses only — e.g. 127.0.0.1 and [::1].
+# This is sufficient to run a single development node on a server.
+# use the private IP of the node here
+network.host: 0.0.0.0
+
+# by default transport.host refers to network.host
+transport.host: 0.0.0.0
+
+# Used to set the http.bind_host and the http.publish_host Defaults to http.host or network.host.
+http.host: 0.0.0.0
+
+# By default, Elasticsearch will use the first seven characters of the randomly generated UUID as the node id.
+# Note that the node id is persisted and does not change when a node restarts and therefore the default node name will also not change.
+node.name: node-elasticsearch
+
+# Out of the box, without any network configuration, Elasticsearch will bind to the available loopback addresses and will scan ports 9300 to 9305 to try to connect to other nodes running on the same server.
+# This provides an auto- clustering experience without having to do any configuration.
+# discovery.zen.ping.unicast.hosts: elasticsearch
+
+# Another option is to use mlockall on Linux/Unix systems, or VirtualLock on Windows, to try to lock the process address space into RAM, preventing any Elasticsearch memory from being swapped out.
+# allow Elasticsearch to mlock()
+bootstrap.memory_lock: true
+
+# MONITORING
+xpack.monitoring.enabled: true
+xpack.monitoring.collection.enabled: true
+
+# SECURITY
+# * Basic license does not give access to security feature.
+xpack.security.enabled: true
+xpack.license.self_generated.type: trial
+
+xpack.security.http.ssl.enabled: true
+xpack.security.http.ssl.verification_mode: certificate
+xpack.security.http.ssl.key: /usr/share/elasticsearch/config/certs/elasticsearch/elasticsearch.key
+xpack.security.http.ssl.certificate: /usr/share/elasticsearch/config/certs/elasticsearch/elasticsearch.crt
+xpack.security.http.ssl.certificate_authorities: [ "/usr/share/elasticsearch/config/certs/ca/ca.crt" ]
+
+xpack.security.transport.ssl.enabled: true
+xpack.security.transport.ssl.key: /usr/share/elasticsearch/config/certs/elasticsearch/elasticsearch.key
+xpack.security.transport.ssl.certificate: /usr/share/elasticsearch/config/certs/elasticsearch/elasticsearch.crt
+xpack.security.transport.ssl.certificate_authorities: [ "/usr/share/elasticsearch/config/certs/ca/ca.crt" ]
+
+# minimum_master_nodes need to be explicitly set when bound on a public IP
+# set to 1 to allow single node clusters
+# Details: https://github.com/elastic/elasticsearch/pull/17288
+discovery.zen.minimum_master_nodes: 1
+
+# Use single node discovery in order to disable production mode and avoid bootstrap checks
+# Details: https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html#single-node-discovery
+discovery.type: single-node

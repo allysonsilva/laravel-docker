@@ -1,0 +1,4 @@
+certs/etc/
+certs/var/
+**/*/.gitignore
+**/*/.DS_Store

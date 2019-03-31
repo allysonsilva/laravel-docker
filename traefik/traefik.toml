@@ -1,0 +1,85 @@
+logLevel = "INFO"
+defaultEntryPoints = ["http", "https"]
+
+[traefikLog]
+
+[accessLog]
+  filePath = "/var/log/access.log"
+  format = "json"
+
+[entryPoints]
+  [entryPoints.http]
+  address = ":80"
+    [entryPoints.http.redirect]
+    entryPoint = "https"
+    permanent = true
+  [entryPoints.https]
+  address = ":443"
+  compress = true
+    [entryPoints.https.tls]
+    minVersion = "VersionTLS12"
+    cipherSuites = ["TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", "TLS_RSA_WITH_AES_256_GCM_SHA384"]
+      [[entryPoints.https.tls.certificates]]
+      certFile = "/certs/cert.pem"
+      keyFile = "/certs/privkey.pem"
+  ## define entryPoint for traefik dashboard!
+  [entryPoints.traefik-dashboard]
+  address = ":8099"
+  compress = true
+    [entryPoints.traefik-dashboard.auth]
+      [entryPoints.traefik-dashboard.auth.basic]
+      # Get md5 from htpasswd or http://www.htaccesstools.com/htpasswd-generator/
+      # and then double all $ to $$ to avoid docker-compose
+      users = [
+          # admin:admin
+          "admin:$apr1$HDzBz1ia$Z7YgDsL8jjQtLquMd6QQD/"
+      ]
+
+########
+## API definition
+########
+# Warning: Enabling API will expose Traefik's configuration.
+# It is not recommended in production, unless secured by authentication and authorizations.
+[api]
+# Name of the related entry point
+entrypoint="traefik-dashboard"
+# Enable Dashboard
+dashboard = true
+
+[ping]
+entryPoint = "traefik-dashboard"
+
+########
+## Enable Docker Provider
+########
+[docker]
+# Docker server endpoint. Can be a tcp or a unix socket endpoint.
+endpoint = "unix:///var/run/docker.sock"
+# Default base domain used for the frontend rules.
+# Can be overridden by setting the "traefik.domain" label on a container.
+domain = "app.com"
+# Enable watch docker changes.
+watch = true
+# Define a default docker network to use for connections to all containers.
+# Can be overridden by the traefik.docker.network label.
+network = "NetTraefik"
+# Expose containers by default in Traefik.
+# If set to false, containers that don't have `traefik.enable=true` will be ignored.
+exposedByDefault = false
+
+[file]
+watch = true
+
+# [backends]
+#   [backends.backend-1]
+#     [backends.backend-1.servers]
+#       [backends.backend-1.servers.server0]
+#       url = "http://128.0.0.1"
+#       weight = 10
+
+# [frontends]
+#   [frontends.frontend-2]
+#   backend = "backend_1"
+#     [frontends.frontend-2.routes]
+#       [frontends.frontend-2.routes.route0]
+#       rule = "Host: frontend.example.com"

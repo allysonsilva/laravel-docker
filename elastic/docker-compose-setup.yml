@@ -1,0 +1,22 @@
+version: "3.7"
+
+services:
+
+    setup-elk:
+        image: docker/compose:1.23.2
+        hostname: setup-elk
+        container_name: setup-elk
+        working_dir: "${PWD}"
+        cap_add: ['SYS_ADMIN']
+        environment:
+            - "PWD=${PWD}"
+            - "ELASTIC_PASSWORD"
+        volumes:
+            - type: bind
+              source: "${PWD}"
+              target: "${PWD}"
+            - type: bind
+              source: "/var/run/docker.sock"
+              target: "/var/run/docker.sock"
+        entrypoint: ["/bin/ash", "-c"]
+        command: ['cat ./scripts/setup.sh | tr -d "\r" | ash']

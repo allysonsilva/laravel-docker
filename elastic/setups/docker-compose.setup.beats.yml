@@ -1,0 +1,56 @@
+---
+version: '3.7'
+
+services:
+
+    setup_filebeat:
+        image: docker.elastic.co/beats/filebeat:${TAG_ELK}
+        hostname: setup_filebeat
+        container_name: setup_filebeat
+        user: root
+        volumes:
+            - './config/filebeat:/config/filebeat'
+            - './scripts/setup-beat.sh:/usr/local/bin/setup-beat.sh:ro'
+            - './config/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml'
+            - './config/ssl/ca/ca.crt:/usr/share/filebeat/certs/ca/ca.crt'
+        command: ['/bin/bash', '-c', 'cat /usr/local/bin/setup-beat.sh | tr -d "\r" | bash -s filebeat']
+        environment: ['ELASTIC_PASSWORD=${ELASTIC_PASSWORD}']
+        networks:
+            NetworkElastic:
+                ipv4_address: 172.198.2.101
+        depends_on: ['kibana']
+
+    setup_metricbeat:
+        image: docker.elastic.co/beats/metricbeat:${TAG_ELK}
+        hostname: setup_metricbeat
+        container_name: setup_metricbeat
+        user: root
+        volumes:
+            - './config/metricbeat:/config/metricbeat'
+            - './scripts/setup-beat.sh:/usr/local/bin/setup-beat.sh:ro'
+            - './config/metricbeat/metricbeat.yml:/usr/share/metricbeat/metricbeat.yml'
+            - './config/ssl/ca/ca.crt:/usr/share/metricbeat/certs/ca/ca.crt'
+        command: ['/bin/bash', '-c', 'cat /usr/local/bin/setup-beat.sh | tr -d "\r" | bash -s metricbeat']
+        environment: ['ELASTIC_PASSWORD=${ELASTIC_PASSWORD}']
+        networks:
+            NetworkElastic:
+                ipv4_address: 172.198.2.102
+        depends_on: ['kibana']
+
+    setup_packetbeat:
+        image: docker.elastic.co/beats/packetbeat:${TAG_ELK}
+        hostname: setup_packetbeat
+        container_name: setup_packetbeat
+        user: root
+        cap_add: ['NET_RAW', 'NET_ADMIN']
+        command: ['/bin/bash', '-c', 'cat /usr/local/bin/setup-beat.sh | tr -d "\r" | bash -s packetbeat']
+        volumes:
+            - './config/packetbeat:/config/packetbeat'
+            - './scripts/setup-beat.sh:/usr/local/bin/setup-beat.sh:ro'
+            - './config/packetbeat/packetbeat.yml:/usr/share/packetbeat/packetbeat.yml'
+            - './config/ssl/ca/ca.crt:/usr/share/packetbeat/certs/ca/ca.crt'
+        environment: ['ELASTIC_PASSWORD=${ELASTIC_PASSWORD}']
+        networks:
+            NetworkElastic:
+                ipv4_address: 172.198.2.103
+        depends_on: ['kibana']

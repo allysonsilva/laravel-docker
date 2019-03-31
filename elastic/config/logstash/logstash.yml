@@ -1,0 +1,19 @@
+## Default Logstash configuration from logstash-docker.
+## from https://github.com/elastic/logstash-docker/blob/master/build/logstash/config/logstash-oss.yml
+
+node.name: logstash
+http.host: 0.0.0.0
+http.port: 9600
+
+# @see https://www.elastic.co/guide/en/logstash/current/dir-layout.html#docker-layout
+path.settings: /usr/share/logstash/config
+path.config: /usr/share/logstash/pipeline
+path.data: /usr/share/logstash/data
+
+xpack.monitoring.enabled: true
+
+# read password from logstash.keystore
+xpack.monitoring.elasticsearch.password: ${ELASTIC_PASSWORD}
+xpack.monitoring.elasticsearch.url: https://elasticsearch:9200
+xpack.monitoring.elasticsearch.username: logstash_system
+xpack.monitoring.elasticsearch.ssl.ca: /usr/share/logstash/config/certs/ca/ca.crt

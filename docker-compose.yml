@@ -1,210 +1,273 @@
-version: '3.6'
+version: '3.7'
+
+networks:
+    NetworkApp:
+        driver: bridge
+        name: NetworkApp
+        ipam:
+            driver: default
+            config:
+                - subnet: 172.31.0.0/16
+    # NetworkTraefik:
+    #     driver: overlay
+    #     name: NetworkTraefik
+
+volumes:
+    mySQLData:
+    mongoDBData:
+    redisData:
+    localBindApp:
+        driver: local
+        driver_opts:
+            type: none
+            device: $PWD/${LOCAL_SRC}
+            o: bind
 
 services:
 
-    # elasticsearch:
-    #     image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTICSEARCH_VERSION-6.3.1}
-    #     hostname: elasticsearch
-    #     container_name: elasticsearch
+    # traefik:
+    #     image: traefik:1.7-alpine
+    #     hostname: traefik
+    #     container_name: traefik
+    #     # command: |
+    #     #     - "--configFile=/traefik.toml"
     #     labels:
-    #         com.example.service: "ES"
-    #         com.example.description: "For searching and indexing data"
-    #     environment:
-    #         # - cluster.name=docker-cluster
-    #         # - bootstrap.memory_lock=true
-    #         # - "discovery.type=single-node"
-    #         - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    #     ulimits:
-    #         memlock:
-    #             soft: -1
-    #             hard: -1
-    #         nofile:
-    #             soft: 65536
-    #             hard: 65536
+    #         traefik.enable: "true"
+    #         traefik.backend: "traefik"
+    #         traefik.frontend.rule: "Host:traefik.${DOMAIN_APP}"
+    #         traefik.port: "8099"
+    #     expose:
+    #         # Traefik dashboard port
+    #         - 8099
     #     ports:
-    #         - "32788:9200"
-    #         - "32787:9300"
-    #     networks:
-    #         - NetworkApp
+    #         - target: 80
+    #           published: 80
+    #           protocol: tcp
+    #         - target: 443
+    #           published: 443
+    #           protocol: tcp
     #     volumes:
-    #         - elasticsearchData:/usr/share/elasticsearch/data
-    #         - ./elastic/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+    #         - ./nginx/certs/:/certs/:ro
+    #         - ./traefik/traefik.toml:/traefik.toml:ro
+    #         - /var/run/docker.sock:/var/run/docker.sock:ro
+    #     restart: on-failure
+    #     networks:
+    #         NetworkTraefik:
 
-    # logstash:
-    #     image: docker.elastic.co/logstash/logstash:${LOGSTASH_VERSION-6.3.1}
-    #     hostname: logstash
-    #     container_name: logstash
+    # whoami:
+    #     hostname: whoami
+    #     container_name: whoami
+    #     image: containous/whoami
     #     labels:
-    #         com.example.service: "Logstash"
-    #         com.example.description: "For logging data"
-    #     volumes:
-    #         - ./elastic/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
-    #         - ./elastic/logstash/pipeline:/usr/share/logstash/pipeline:ro
-    #     ports:
-    #         - "50001:5000"
-    #     environment:
-    #         LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+    #         traefik.enable: true
+    #         traefik.frontend.rule: "Host:whoami.${DOMAIN_APP}"
     #     networks:
-    #         - NetworkApp
-    #     depends_on:
-    #         - elasticsearch
+    #         NetworkTraefik:
 
-    # kibana:
-    #     image: docker.elastic.co/kibana/kibana:${KIBANA_VERSION-6.3.1}
-    #     hostname: kibana
-    #     container_name: kibana
-    #     labels:
-    #         com.example.service: "Kibana"
-    #         com.example.description: "Data visualisation and for log aggregation"
-    #     # environment:
-    #     #     ELASTICSEARCH_URL: http://elasticsearch:32788
-    #     volumes:
-    #         - ./elastic/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
-    #     ports:
-    #         - "56011:5601"
-    #     networks:
-    #         - NetworkApp
-    #     depends_on:
-    #         - elasticsearch
-
-    # # redis-cli -h 127.0.0.1 -p 63791 -a 'P5+Rbhq,%--8[]CA'
+    # # redis-cli -h 127.0.0.1 -p 63781 -a 'HQD3{9S-u(qnxK@'
     redis:
-        image: redis:4.0
+        image: redis:5-alpine
         hostname: redis
         container_name: redis
-        deploy:
-            replicas: 5
-            restart_policy:
-                condition: on-failure
-                delay: 5s
-                max_attempts: 3
-                window: 120s
-            resources:
-                limits:
-                    cpus: '0.50'
-                    memory: 50M
-                reservations:
-                    cpus: '0.25'
-                    memory: 20M
         ports:
-            - "63791:6379"
+            - "63781:6379"
         volumes:
-            - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+            - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
             - redisData:/data
         command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--appendonly", "yes"]
-        restart: always
+        restart: on-failure
         networks:
-            - NetworkApp
+            NetworkApp:
+                ipv4_address: 172.31.1.2
+        healthcheck:
+            test: ["CMD-SHELL", "redis-cli -h 127.0.0.1 -p 6379 -a 'HQD3{9S-u(qnxK@' --no-auth-warning PING"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
 
-    # # mysql -h 127.0.0.1 -P 33061 -uhomestead -psecret
+    # # mysql -h 127.0.0.1 -P 30061 -uapp -p'TxdITs=CgN9e7+p' \
+    # #     --ssl-ca=mysql/ssl/ca.pem \
+    # #     --ssl-cert=mysql/ssl/client-cert.pem \
+    # #     --ssl-key=mysql/ssl/client-key.pem
     database:
         image: mysql:5.7
         hostname: database
         container_name: database
-        command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --init-connect='SET NAMES utf8mb4;' --innodb-flush-log-at-trx-commit=0
+        command: ["mysqld"]
         volumes:
-            - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+            - ./mysql/ssl/ca.pem:/etc/mysql-ssl/ca.pem:ro
+            - ./mysql/ssl/server-cert.pem:/etc/mysql-ssl/server-cert.pem:ro
+            - ./mysql/ssl/server-key.pem:/etc/mysql-ssl/server-key.pem:ro
+            - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
             - mySQLData:/var/lib/mysql
-        environment:
-            MYSQL_ROOT_PASSWORD: root
-            MYSQL_DATABASE: homestead
-            MYSQL_USER: homestead
-            MYSQL_PASSWORD: secret
+        env_file:
+            - ./mysql/mysql.env
         ports:
-            - "33061:3306"
-        restart: always
+            - "30061:3306"
+        restart: on-failure
         networks:
-            - NetworkApp
+            NetworkApp:
+                ipv4_address: 172.31.1.3
+        healthcheck:
+            test: "export MYSQL_PWD='5?qqSm3_@mqrJ_'; mysqladmin -h 127.0.0.1 -P 3306 --user=root --silent ping"
+            interval: 10s
+            timeout: 5s
+            retries: 3
+
+    # # mongo --ssl \
+    # #       --sslCAFile ./mongodb/ssl/rootCA.pem --sslPEMKeyFile ./mongodb/ssl/client.pem \
+    # #       --host 127.0.0.1 --port 29019 -u 'root' -p 'Y601=lN!JbL6yj18' --authenticationDatabase admin
+    # # @see https://medium.com/@rajanmaharjan/secure-your-mongodb-connections-ssl-tls-92e2addb3c89
+    mongodb:
+        image: mongo:4.1
+        hostname: mongodb
+        container_name: mongodb
+        command: ["mongod", "--config", "/etc/mongo/mongod.conf"]
+        ports:
+            - "29019:27017"
+        volumes:
+            - ./mongodb/mongod.conf:/etc/mongo/mongod.conf:ro
+            - ./mongodb/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+            - ./mongodb/ssl/rootCA.pem:/etc/ssl/ca.pem:ro
+            - ./mongodb/ssl/server.pem:/etc/ssl/server.pem:ro
+            - mongoDBData:/data/db
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: root
+            MONGO_INITDB_ROOT_PASSWORD: Y601=lN!JbL6yj18
+        restart: on-failure
+        networks:
+            NetworkApp:
+                ipv4_address: 172.31.1.4
 
     webserver:
-        image: webserver:1.0
+        image: ${WEBSERVER_IMAGE}
         hostname: webserver
         container_name: webserver
         build:
             context: ./nginx
             dockerfile: Dockerfile
+            args:
+                DOMAIN_APP: ${DOMAIN_APP}
+                APP_PATH_PREFIX: ${APP_PATH_PREFIX}
+        environment:
+            ONLY_APP: "true"
+            DOMAIN_APP: ${DOMAIN_APP}
+            APP_PATH_PREFIX: ${APP_PATH_PREFIX}
         ports:
-            - "8080:80"
-            - "8083:443"
+            - "${PORT_HTTP}:80"
+            - "${PORT_HTTPS}:443"
+        labels:
+            - traefik.enable=true
+            - traefik.frontend.rule=Host:www.${DOMAIN_APP}
         networks:
-            - NetworkApp
+            NetworkApp:
+                ipv4_address: 172.31.1.5
         depends_on:
             - app
-        restart: on-failure
+        restart: unless-stopped
+        # ulimits:
+        #     memlock:
+        #         soft: -1
+        #         hard: -1
+        #     nofile:
+        #         soft: 32768
+        #         hard: 65535
         working_dir: ${REMOTE_SRC}
-        volumes:
-            - type: bind
-              source: ./nginx/config/servers/app.conf
-              target: /etc/nginx/conf.d/default.conf
-              read_only: true
-            - type: volume
-              source: localDataApp
-              target: ${REMOTE_SRC}
+        # volumes:
+        #     - type: volume
+        #       source: localBindApp
+        #       target: ${REMOTE_SRC}
         links:
             - "app:php-fpm"
 
     # # docker-compose exec app php artisan key:generate
     # # docker-compose exec app php artisan migrate --seed
     app:
-        image: app:latest
+        image: ${APP_IMAGE}
         hostname: app
         container_name: app
         build:
             context: ${LOCAL_SRC}
-            dockerfile: ./docker/php/Dockerfile
+            dockerfile: ${DOCKER_FOLDER_PATH}/app/Dockerfile
             args:
-                DEFAULT_ENVIRONMENT: development
-                DEFAULT_USER: "app"
-        ports:
-            - "9001:9000"
-            - "9099:9099"
+                DOMAIN_APP: ${DOMAIN_APP}
+                APP_PATH_PREFIX: ${APP_PATH_PREFIX}
+                DOCKER_FOLDER_PATH: ${DOCKER_FOLDER_PATH}
         working_dir: ${REMOTE_SRC}
+            # When you set the same environment variable in multiple files, here’s the priority used by Compose to choose which value to use:
+            # 1. Compose file
+            # 2. Shell environment variables
+            # 3. Environment file
+            # 4. Dockerfile
+            # 5. Variable is not defined
+        env_file:
+            - ./app/app.env
+        ports:
+            - "9001:9001"
+            - "8081:8080"
         environment:
-            APP_ENV: local
-            CACHE_DRIVER: redis
-            SESSION_DRIVER: redis
-            QUEUE_DRIVER: redis
-            REDIS_PASSWORD: "P5+Rbhq,%--8[]CA"
-            REDIS_HOST: redis
-            REDIS_PORT: 6379
-            DB_HOST: database
-            DB_DATABASE: homestead
-            DB_USERNAME: homestead
-            DB_PASSWORD: secret
-            DB_PORT: 3306
-        depends_on:
-            - redis
-            - database
-        volumes:
+            REMOTE_SRC: ${REMOTE_SRC}
+            PROJECT_ENVIRONMENT: ${PROJECT_ENVIRONMENT}
+        depends_on: ['redis', 'database']
+        # ulimits:
+        #     memlock:
+        #         soft: -1
+        #         hard: -1
+        #     nofile:
+        #         soft: 32768
+        #         hard: 65535
+        # volumes:
             # # Used [:delegated] or [:cached] mode here on docker for MAC for faster disk I/O
-            - ${LOCAL_SRC}:${REMOTE_SRC}
-            # - ./storage/app:/var/www/app/storage/app:ro
-            # - ./storage/logs:/var/www/app/storage/logs:ro
-            # - ./php/config/php.ini-production.ini:/usr/local/etc/php/php.ini:ro
-            # - ./php/config/extensions/opcache.ini:/usr/local/etc/php/conf.d/docker-php-ext-opcache.ini
-            # - ./php/config/extensions/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+            # - ${LOCAL_SRC}:${REMOTE_SRC}:delegated
+            # - ./app/config/php.ini-production.ini:/usr/local/etc/php/php.ini:ro
+            # - ./app/config/extensions/opcache.ini:/usr/local/etc/php/conf.d/docker-php-ext-opcache.ini
+            # - ./app/config/extensions/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
         networks:
             NetworkApp:
+                ipv4_address: 172.31.1.6
         tty: true
         stdin_open: true
-        restart: on-failure
+        restart: unless-stopped
         dns:
             - 8.8.8.8
             - 8.8.4.4
 
-networks:
-    NetworkApp:
-        driver: bridge
-        name: NetApp
+    queue:
+        image: ${APP_QUEUE_IMAGE}
+        hostname: queue
+        container_name: queue
+        env_file:
+            - ./queue/queue.env
+        environment:
+            REMOTE_SRC: ${REMOTE_SRC}
+            PROJECT_ENVIRONMENT: ${PROJECT_ENVIRONMENT}
+            LARAVEL_QUEUE_MANAGER: ${LARAVEL_QUEUE_MANAGER}
+        working_dir: ${REMOTE_SRC}
+        ports:
+            - "8082:8080"
+        depends_on: ['redis', 'database']
+        # volumes:
+        #     - ${LOCAL_SRC}:${REMOTE_SRC}:delegated
+        networks:
+            NetworkApp:
+                ipv4_address: 172.31.1.7
+        restart: on-failure
 
-volumes:
-    elasticsearchData:
-        driver: local
-    mySQLData:
-    redisData:
-    localDataApp:
-        driver: local
-        driver_opts:
-            type: none
-            device: $PWD/${LOCAL_SRC}
-            o: bind
+    scheduler:
+        image: ${APP_SCHEDULER_IMAGE}
+        hostname: scheduler
+        container_name: scheduler
+        env_file:
+            - ./scheduler/scheduler.env
+        environment:
+            REMOTE_SRC: ${REMOTE_SRC}
+        working_dir: ${REMOTE_SRC}
+        ports:
+            - "8083:8080"
+        depends_on: ['redis', 'database']
+        # volumes:
+        #     - ${LOCAL_SRC}:${REMOTE_SRC}:delegated
+        networks:
+            NetworkApp:
+                ipv4_address: 172.31.1.8
+        restart: on-failure

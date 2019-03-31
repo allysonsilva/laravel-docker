@@ -1,0 +1,267 @@
+---
+version: '3.7'
+
+# # @example https://github.com/elastic/stack-docker/blob/master/docker-compose.yml
+
+networks:
+    NetworkElastic:
+        driver: bridge
+        name: NetElastic
+        ipam:
+            driver: default
+            config:
+                - subnet: 172.198.0.0/16
+
+volumes:
+    elasticsearchData:
+        driver: local
+
+secrets:
+    ca.crt:
+        file: ./config/ssl/ca/ca.crt
+    elasticsearch.yml:
+        file: ./config/elasticsearch/elasticsearch.yml
+    elasticsearch.keystore:
+        file: ./config/elasticsearch/elasticsearch.keystore
+    elasticsearch.key:
+        file: ./config/elasticsearch/elasticsearch.key
+    elasticsearch.crt:
+        file: ./config/elasticsearch/elasticsearch.crt
+    kibana.yml:
+        file: ./config/kibana/kibana.yml
+    kibana.keystore:
+        file: ./config/kibana/kibana.keystore
+    kibana.key:
+        file: ./config/kibana/kibana.key
+    kibana.crt:
+        file: ./config/kibana/kibana.crt
+    logstash.yml:
+        file: ./config/logstash/logstash.yml
+    logstash.keystore:
+        file: ./config/logstash/logstash.keystore
+    logstash.conf:
+        file: ./config/logstash/pipeline/logstash.conf
+    filebeat.yml:
+        file: ./config/filebeat/filebeat.yml
+    filebeat.keystore:
+        file: ./config/filebeat/filebeat.keystore
+    metricbeat.yml:
+        file: ./config/metricbeat/metricbeat.yml
+    metricbeat.keystore:
+        file: ./config/metricbeat/metricbeat.keystore
+    packetbeat.yml:
+        file: ./config/packetbeat/packetbeat.yml
+    packetbeat.keystore:
+        file: ./config/packetbeat/packetbeat.keystore
+
+services:
+
+    # # @see PRODUCTION MODE https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html#docker-cli-run-prod-mode
+    # # INSIDE CONTAINER: curl --cacert config/certs/ca/ca.crt -u elastic:${ELASTIC_PASSWORD} https://localhost:9200/ -v || curl -s --cacert /usr/share/elasticsearch/config/certs/ca/ca.crt https://elastic:${ELASTIC_PASSWORD}@elasticsearch:9200
+    # # LOCAL: curl --cacert elastic/config/ssl/ca/ca.crt -u elastic:${ELASTIC_PASSWORD} https://localhost:32788/ -v
+    elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTICSEARCH_VERSION-6.6.2}
+        hostname: elasticsearch
+        container_name: elasticsearch
+        secrets:
+            - source: ca.crt
+              target: /usr/share/elasticsearch/config/certs/ca/ca.crt
+            - source: elasticsearch.yml
+              target: /usr/share/elasticsearch/config/elasticsearch.yml
+            - source: elasticsearch.keystore
+              target: /usr/share/elasticsearch/config/elasticsearch.keystore
+            - source: elasticsearch.key
+              target: /usr/share/elasticsearch/config/certs/elasticsearch/elasticsearch.key
+            - source: elasticsearch.crt
+              target: /usr/share/elasticsearch/config/certs/elasticsearch/elasticsearch.crt
+        labels:
+            com.elasticsearch.service: "ES"
+            com.elasticsearch.description: "For searching and indexing data"
+        environment:
+            # ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+            ES_JAVA_OPTS: "-Xms1G -Xmx1G"
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
+            nofile:
+                soft: 524288
+                hard: 1048576
+        cap_add:
+            - ALL
+        # privileged: true
+        restart: always
+        # # By default, Elasticsearch runs inside the container as user elasticsearch using uid:gid 1000:1000.
+        # user: ${UID:-1000}
+        # working_dir: /usr/share/elasticsearch
+        ports:
+            - "32788:9200"
+            - "32787:9300"
+        networks:
+            NetworkElastic:
+                ipv4_address: 172.198.1.2
+        volumes:
+            - elasticsearchData:/usr/share/elasticsearch/data
+            - './scripts/setup-users.sh:/usr/local/bin/setup-users.sh:ro'
+        # # [docker inspect --format='{{json .State.Health}}' elasticsearch] or [docker inspect elasticsearch | jq ".[]. State.Health"]
+        healthcheck:
+            test: ["CMD-SHELL", "curl -fsSL --cacert config/certs/ca/ca.crt -u elastic:\"${ELASTIC_PASSWORD}\" \"https://localhost:9200/_cat/health?h=status\" || exit 1"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+
+    kibana:
+        image: docker.elastic.co/kibana/kibana:${KIBANA_VERSION-6.6.2}
+        hostname: kibana
+        container_name: kibana
+        secrets:
+            - source: ca.crt
+              target: /usr/share/kibana/config/certs/ca/ca.crt
+            - source: kibana.yml
+              target: /usr/share/kibana/config/kibana.yml
+            - source: kibana.keystore
+              target: /usr/share/kibana/data/kibana.keystore
+            - source: kibana.key
+              target: /usr/share/kibana/config/certs/kibana/kibana.key
+            - source: kibana.crt
+              target: /usr/share/kibana/config/certs/kibana/kibana.crt
+        labels:
+            com.kibana.service: "Kibana"
+            com.kibana.description: "Data visualisation and for log aggregation"
+        ports:
+            - "56011:5601"
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
+        cap_add:
+            - ALL
+        networks:
+            NetworkElastic:
+                ipv4_address: 172.198.1.3
+        depends_on:
+            - elasticsearch
+        restart: always
+        # healthcheck:
+        #     test: ["CMD-SHELL", "curl --cacert /usr/share/kibana/config/certs/ca/ca.crt -u kibana:\"${ELASTIC_PASSWORD}\" -s https://localhost:5601/api/status -sL -w \"%{http_code}\" -o /dev/null || exit 1"]
+        #     interval: 30s
+        #     timeout: 10s
+        #     retries: 5
+
+    logstash:
+        image: docker.elastic.co/logstash/logstash:${LOGSTASH_VERSION-6.6.2}
+        hostname: logstash
+        container_name: logstash
+        secrets:
+            - source: logstash.conf
+              target: /usr/share/logstash/pipeline/logstash.conf
+            - source: logstash.yml
+              target: /usr/share/logstash/config/logstash.yml
+            - source: logstash.keystore
+              target: /usr/share/logstash/config/logstash.keystore
+            - source: ca.crt
+              target: /usr/share/logstash/config/certs/ca/ca.crt
+        labels:
+            com.logstash.service: "Logstash"
+            com.logstash.description: "For logging data"
+        ports:
+            - "50441:5044"
+        environment:
+            LS_JAVA_OPTS: "-Xmx512m -Xms512m"
+        networks:
+            NetworkElastic:
+                ipv4_address: 172.198.1.4
+        depends_on:
+            - elasticsearch
+        restart: always
+
+    filebeat:
+        image: docker.elastic.co/beats/filebeat:${TAG_ELK}
+        hostname: filebeat
+        container_name: filebeat
+        command: --strict.perms=false -e  # -e flag to log to stderr and disable syslog/file output
+        # If the host system has logs at "/var/log", mount them at "/mnt/log"
+        # inside the container, where Filebeat can find them.
+        # volumes: ['/var/log:/mnt/log:ro']
+        secrets:
+            - source: filebeat.yml
+              target: /usr/share/filebeat/filebeat.yml
+            - source: filebeat.keystore
+              target: /usr/share/filebeat/filebeat.keystore
+            - source: ca.crt
+              target: /usr/share/filebeat/certs/ca/ca.crt
+        volumes:
+            - './scripts/setup-beat.sh:/usr/local/bin/setup-beat.sh:ro'
+        networks:
+            NetworkElastic:
+                ipv4_address: 172.198.1.6
+        depends_on: ['elasticsearch', 'kibana']
+        healthcheck:
+            test: filebeat test config
+            interval: 30s
+            timeout: 15s
+            retries: 5
+
+    metricbeat:
+        image: docker.elastic.co/beats/metricbeat:${TAG_ELK}
+        hostname: metricbeat
+        container_name: metricbeat
+        # The commented sections below enable Metricbeat to monitor the Docker host,
+        # rather than the Metricbeat container. It's problematic with Docker for
+        # Windows, however, since "/proc", "/sys" etc. don't exist on Windows.
+        # The same likely applies to OSX (needs testing).
+        # volumes:
+        #     - /proc:/hostfs/proc:ro
+        #     - /sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro
+        #     - /:/hostfs:ro
+        command: --strict.perms=false -e  # -e flag to log to stderr and disable syslog/file output
+        secrets:
+            - source: metricbeat.yml
+              target: /usr/share/metricbeat/metricbeat.yml
+            - source: metricbeat.keystore
+              target: /usr/share/metricbeat/metricbeat.keystore
+            - source: ca.crt
+              target: /usr/share/metricbeat/certs/ca/ca.crt
+        volumes:
+            - './scripts/setup-beat.sh:/usr/local/bin/setup-beat.sh:ro'
+        networks:
+            NetworkElastic:
+                ipv4_address: 172.198.1.8
+        depends_on: ['elasticsearch', 'kibana']
+        healthcheck:
+            test: metricbeat test config
+            interval: 30s
+            timeout: 15s
+            retries: 5
+
+    packetbeat:
+        image: docker.elastic.co/beats/packetbeat:${TAG_ELK}
+        hostname: packetbeat
+        container_name: packetbeat
+        # Packetbeat needs some elevated privileges to capture network traffic.
+        # We'll grant them with POSIX capabilities.
+        cap_add: ['NET_RAW', 'NET_ADMIN']
+        # Use "host mode" networking to allow Packetbeat to capture traffic from
+        # the real network interface on the host, rather than being isolated to the
+        # container's virtual interface.
+        network_mode: host
+        # Since we did that, Packetbeat is not part of the "stack" Docker network
+        # that the other containers are connected to, and thus can't resolve the
+        # hostname "elasticsearch". Instead, we'll tell it to find Elasticsearch
+        # on "localhost", which is the Docker host machine in this context.
+        command: --strict.perms=false -e -E 'output.elasticsearch.hosts=["https://localhost:32788"]' -E 'setup.kibana.host="https://localhost:56011"' # -e flag to log to stderr and disable syslog/file output
+        secrets:
+            - source: packetbeat.yml
+              target: /usr/share/packetbeat/packetbeat.yml
+            - source: packetbeat.keystore
+              target: /usr/share/packetbeat/packetbeat.keystore
+            - source: ca.crt
+              target: /usr/share/packetbeat/certs/ca/ca.crt
+        volumes:
+            - './scripts/setup-beat.sh:/usr/local/bin/setup-beat.sh:ro'
+        depends_on: ['elasticsearch', 'kibana']
+        healthcheck:
+            test: packetbeat test config
+            interval: 30s
+            timeout: 15s
+            retries: 5

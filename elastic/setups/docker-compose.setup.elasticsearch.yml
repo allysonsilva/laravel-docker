@@ -1,0 +1,19 @@
+---
+version: '3.7'
+
+services:
+    # Setup Elasticsearch
+    #   * keystore
+    #   * SSL
+    setup_elasticsearch:
+      image: docker.elastic.co/elasticsearch/elasticsearch:${TAG_ELK}
+      container_name: setup_elasticsearch
+      command: ['/bin/bash', '-c', 'cat /usr/local/bin/setup-elasticsearch.sh | tr -d "\r" | bash']
+      environment: ['ELASTIC_PASSWORD=${ELASTIC_PASSWORD}']
+      working_dir: '/config'
+      volumes:
+          - './config:/config'
+          - './scripts/setup-elasticsearch.sh:/usr/local/bin/setup-elasticsearch.sh:ro'
+      networks:
+          NetworkElastic:
+              ipv4_address: 172.198.1.101

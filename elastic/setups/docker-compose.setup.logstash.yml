@@ -1,0 +1,19 @@
+---
+version: '3.7'
+
+services:
+
+    setup_logstash:
+        image: docker.elastic.co/logstash/logstash:${TAG_ELK}
+        container_name: setup_logstash
+        command: ['/bin/bash', '-c', 'cat /usr/local/bin/setup-logstash.sh | tr -d "\r" | bash']
+        environment: ['ELASTIC_PASSWORD=${ELASTIC_PASSWORD}']
+        working_dir: '/config'
+        volumes:
+            - './config:/config'
+            - './scripts/setup-logstash.sh:/usr/local/bin/setup-logstash.sh:ro'
+            - './config/ssl/ca/ca.crt:/usr/share/logstash/config/ca/ca.crt'
+        depends_on: ['elasticsearch']
+        networks:
+            NetworkElastic:
+                ipv4_address: 172.198.1.103

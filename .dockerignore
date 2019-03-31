@@ -1,7 +1,12 @@
+/.dev
+/.idea
+/examples
+/.vscode
 .git
 .gitignore
 .history
 .vscode
+.editorconfig
 LICENSE
 README.md
 CHANGELOG.md
@@ -9,10 +14,18 @@ CHANGELOG.md
 **/.DS_Store*
 
 .dockerignore
+Dockerfile*
+docker-compose*
 docker
-!docker/ssh
-!docker/php/config
-!docker/php/samples
+!docker/app/ssh
+!docker/mysql/ssl
+!docker/mongodb/ssl
+!docker/queue/config
+!docker/queue/docker-entrypoint.sh
+!docker/scheduler/cron-jobs
+!docker/scheduler/docker-entrypoint.sh
+!docker/app/docker-entrypoint.sh
+!docker/app/config
 !docker/nginx/config
 
 phpunit.xml
