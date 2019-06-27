@@ -12,7 +12,8 @@ php_base_image_name ?= app:base
 app_image_name ?= app:3.0
 app_queue_image_name ?= app:queue
 app_scheduler_image_name ?= app:scheduler
-app_env__project_environment ?= production
+app_env ?= production
+project_environment ?= production
 
 uname_OS := $(shell uname -s)
 user_UID := 1001
@@ -117,6 +118,7 @@ run-nginx:
 			-p 443:443 \
 		-v $(shell pwd)/../:${remote_src} \
 		-v $(shell pwd)/nginx/docker-entrypoint.sh:/entrypoint.sh:ro \
+				--env "ONLY_APP=true" \
 				--env "DOMAIN_APP=${domain_app}" \
 				--env "APP_PATH_PREFIX=${app_path_prefix}" \
 			--workdir ${remote_src} \
@@ -152,15 +154,15 @@ build-full-php:
 		--build-arg INSTALL_PHP_XDEBUG=true \
 	- < ./php/Dockerfile
 
-# $> make build-app app_env__project_environment=production||development app_image_name=app:3.0 domain_app=mydomain.com
+# $> make build-app app_env=production||local project_environment=production||development app_image_name=app:3.0 domain_app=mydomain.com
 build-app:
 	docker build -t ${app_image_name} -f ./app/Dockerfile \
 		--build-arg DOMAIN_APP=${domain_app} \
 		--build-arg APP_PATH_PREFIX=${app_path_prefix} \
 		--build-arg PHP_BASE_IMAGE=${php_base_image_name} \
-		--build-arg APP_ENV=${app_env__project_environment} \
+		--build-arg APP_ENV=${app_env} \
 		--build-arg DOCKER_FOLDER_PATH=${docker_folder_path} \
-		--build-arg PROJECT_ENVIRONMENT=${app_env__project_environment} \
+		--build-arg PROJECT_ENVIRONMENT=${project_environment} \
 	./../
 
 # $> php artisan serve --port=8080 --host=0.0.0.0
@@ -173,8 +175,8 @@ run-app:
 		-v $(shell pwd)/app/docker-entrypoint.sh:/entrypoint.sh:ro \
 				--env "REMOTE_SRC=${remote_src}" \
 				--env "APP_KEY=SomeRandomString" \
-				--env "PROJECT_ENVIRONMENT=${app_env__project_environment}" \
-				--env "APP_ENV=${app_env__project_environment}" \
+				--env "APP_ENV=${app_env}" \
+				--env "PROJECT_ENVIRONMENT=${project_environment}" \
 				--env "APP_DEBUG=true" \
 				--env "DB_CONNECTION=mysql" \
 				--env "DB_HOST=database" \

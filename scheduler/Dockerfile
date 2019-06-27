@@ -10,13 +10,13 @@ LABEL   maintainer="Allyson Silva <support@allyson.tech>" \
         description="Image for manipulation/handling of Scheduler/Cron" \
         version="scheduler"
 
-# Define the running user
-USER root
-
 # Path docker SCHEDULER folder
 # Path Config/Dockerfile SCHEDULER
 ARG DOCKER_SCHEDULER_PATH=${DOCKER_FOLDER_PATH}/scheduler
 ENV DOCKER_SCHEDULER_PATH ${DOCKER_SCHEDULER_PATH}
+
+# Define the running user
+USER root
 
 ####
 ## SUPPORT PACKAGES

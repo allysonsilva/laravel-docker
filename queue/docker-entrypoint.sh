@@ -6,9 +6,6 @@ set -ex
 ## QUEUE ENTRYPOINT
 ########
 
-# worker or horizon
-LARAVEL_QUEUE_MANAGER=${LARAVEL_QUEUE_MANAGER:-worker}
-
 if [ -z "$APP_ENV" ]; then
     echo 'A $APP_ENV environment is required to run this container'
     exit 1
@@ -48,8 +45,15 @@ if [ ! -z "$TIMEZONE" ]; then
 fi
 
 if [ "$PROJECT_ENVIRONMENT" == "development" ]; then
+
     # Remove Opcache in development
-    rm ${PHP_INI_SCAN_DIR}/docker-php-ext-opcache.ini
+    if [ -f ${PHP_INI_SCAN_DIR}/opcache.ini ]; then
+        rm ${PHP_INI_SCAN_DIR}/opcache.ini
+    fi
+
+    if [ -f ${PHP_INI_SCAN_DIR}/docker-php-ext-opcache.ini ]; then
+        rm ${PHP_INI_SCAN_DIR}/docker-php-ext-opcache.ini
+    fi
 
     # DEVELOPMENT
     echo "Laravel - Clear all and permissions [Development]"
@@ -93,14 +97,16 @@ echo
 
 if [[ $LARAVEL_QUEUE_MANAGER == "horizon" ]]; then
 
-    # echo "Laravel/Composer - Install Horizon"
-    # echo
+    if [[ $(php artisan horizon 2>&1 >/dev/null) ]]; then
+        echo "Laravel - Horizon is already installed"
+    else
+        echo "Laravel/Composer - Install Horizon"
 
-    # composer require laravel/horizon
-    # php artisan queue:failed-table
-    # php artisan migrate
-    # php artisan horizon:install
-    # # php artisan vendor:publish --provider="Laravel\Horizon\HorizonServiceProvider"
+        composer require laravel/horizon
+        # # php artisan queue:failed-table
+        # # php artisan migrate
+        php artisan horizon:install
+    fi
 
     echo "Running the [HORIZON] Service..."
     echo

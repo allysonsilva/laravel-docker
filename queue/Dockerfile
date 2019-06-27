@@ -15,6 +15,10 @@ LABEL   maintainer="Allyson Silva <support@allyson.tech>" \
 ARG DOCKER_QUEUE_PATH=${DOCKER_FOLDER_PATH}/queue
 ENV DOCKER_QUEUE_PATH ${DOCKER_QUEUE_PATH}
 
+# worker or horizon
+ARG LARAVEL_QUEUE_MANAGER
+ENV LARAVEL_QUEUE_MANAGER ${LARAVEL_QUEUE_MANAGER:-worker}
+
 # Define the running user
 USER root
 

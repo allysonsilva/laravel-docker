@@ -5,7 +5,7 @@ function fixperms() {
     for folder in $@; do
         if $(find ${folder} ! -user nginx -o ! -group nginx | egrep '.' -q); then
             echo "Fixing permissions in $folder..."
-            chown -R nginx. "${folder}"
+            chown -R www-data. "${folder}"
         else
             echo "Permissions already fixed in ${folder}."
         fi
@@ -16,12 +16,11 @@ function runas_nginx() {
     su - nginx -s /bin/sh -c "$1"
 }
 
-TZ=${TZ:-UTC}
+# NGINX FastCGI Cache
+if [ ! -d "${REMOTE_SRC}/storage/nginx/cache" ]; then
+    mkdir -p ${REMOTE_SRC}/storage/nginx/cache
+fi
 
-HSTS_HEADER=${HSTS_HEADER:-max-age=31536000; includeSubdomains; preload}
-RP_HEADER=${RP_HEADER:-strict-origin-when-cross-origin}
-
-# Timezone
 echo "Setting Timezone to ${TZ} ..."
 ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime
 echo ${TZ} > /etc/timezone
@@ -41,7 +40,7 @@ find /etc/nginx -type f -exec sed -i \
 
 sed -i \
         -e "s/@HSTS_HEADER@/$HSTS_HEADER/g" \
-        -e "s/@RP_HEADER@/$RP_HEADER/g" /etc/nginx/snippets/security_http_headers.conf
+        -e "s/@RP_HEADER@/$RP_HEADER/g" /etc/nginx/snippets/server/security_http_headers.conf
 
 if [[ "${ONLY_APP:-false}" == true ]]; then
     # Will remove all regular files (recursively, including hidden ones) except app.conf.
@@ -53,8 +52,9 @@ if [[ "${ONLY_APP:-false}" == true ]]; then
         fi
 fi
 
-# echo "Fixing permissions..."
-# fixperms "$APP_PATH_PREFIX/app" /var/cache/nginx
+echo "Fixing permissions..."
+fixperms "$REMOTE_SRC" /var/cache/nginx
+
 # echo "Installing APP"
 # runas_nginx "php artisan serve --port=8080 &>/dev/null"
 

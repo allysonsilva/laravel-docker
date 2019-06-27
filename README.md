@@ -228,6 +228,7 @@ $ git clone https://github.com/AllysonSilva/laravel-docker docker && cd docker
 ```
 
 - **Rename the `.env.example` file to `.env`**
+- **Uncomment the `PWD` variable and fill it with result `echo $PWD`**
 - **Use the `DOCKER_FOLDER_PATH` variable in the `.env` file for the folder name `docker`**
 
 ### Download docker images
@@ -311,7 +312,7 @@ See Docker's [documentation]([https://docs.docker.com/engine/reference/builder/#
     * Can be defined at the moment of image creation through argument: `--build-arg PROJECT_ENVIRONMENT=production||development`)
     * Can be updated at the time of executing the container through environment variables: `--env "PROJECT_ENVIRONMENT=production||development"`
 
-- `$APP_ENV`: Set the environment where the _Laravel_ application will be configured. This variable can be defined at the moment of image build through arguments(`--build-arg APP_ENV=production||development`), or if the image is already created, then it can be replaced by the parameter `--env "APP_ENV=production||development"` when running the container
+- `$APP_ENV`: Set the environment where the _Laravel_ application will be configured. This variable can be defined at the moment of image build through arguments(`--build-arg APP_ENV=production||local`), or if the image is already created, then it can be replaced by the parameter `--env "APP_ENV=production||local"` when running the container
 
 - The environment variables `${APP_PATH_PREFIX}` and `${DOMAIN_APP}` only serve at the time of creation/build of the image. After the image is created, then these variables have no significance in ENTRYPOINT. It aims to define at the time of image build the value of the `$REMOTE_SRC` variable that this same value will be used in the `WORKDIR $REMOTE_SRC` statement
 
@@ -333,14 +334,14 @@ See Docker's [documentation]([https://docs.docker.com/engine/reference/builder/#
 Use the following command to build the image:
 
 ```bash
-$ make build-app app_env__project_environment=production||development app_image_name=app:3.0 domain_app=mydomain.com
+$ make build-app app_env=production||local project_environment=production||development app_image_name=app:3.0 domain_app=mydomain.com
 ```
 
 If you want to customize the image construction according to your arguments, use the `docker build` command directly:
 
 ```bash
 docker build -t app:3.0 -f ./app/Dockerfile \
-    --build-arg DOMAIN_APP=app.com \
+    --build-arg DOMAIN_APP=mydomain.com \
     --build-arg APP_ENV=production \
     --build-arg PHP_BASE_IMAGE=app:base \
     --build-arg APP_PATH_PREFIX=/var/www \
@@ -367,7 +368,7 @@ docker run \
     --env "REMOTE_SRC=/var/www/mydomain.com/" \
     --env "APP_KEY=SomeRandomString" \
     --env "PROJECT_ENVIRONMENT=development" \
-    --env "APP_ENV=development" \
+    --env "APP_ENV=local" \
     --env "APP_DEBUG=true" \
     --env "DB_CONNECTION=mysql" \
     --env "DB_HOST=database" \
@@ -448,6 +449,22 @@ docker run \
             -v $(pwd)/nginx/config/servers/:/etc/nginx/servers \
     --env "DOMAIN_APP=mydomain.com" \
     --env "APP_PATH_PREFIX=/var/www" \
+        --workdir "/var/www/mydomain.com/" \
+        --name=webserver \
+        --hostname=webserver \
+        -t webserver:3.0
+```
+
+To use only the `servers/app.conf` configuration of the serves use the [`ONLY_APP`](nginx/docker-entrypoint.sh#L45) option as the environment variable passing its value to `true`:
+
+```bash
+docker run \
+        --rm \
+        -p 80:80 \
+        -p 443:443 \
+    --env "DOMAIN_APP=mydomain.com" \
+    --env "APP_PATH_PREFIX=/var/www" \
+    --env "ONLY_APP=true" \
         --workdir "/var/www/mydomain.com/" \
         --name=webserver \
         --hostname=webserver \

@@ -3,6 +3,15 @@ FROM ${TAG_APP_IMAGE} as APP_IMAGE
 
 FROM nginx:1.15
 
+LABEL   maintainer="Allyson Silva <support@allyson.tech>" \
+        description="Image for handling requests, server requests" \
+        version="nginx" \
+        org.label-schema.build-date=$BUILD_DATE \
+        org.label-schema.name="nginx" \
+        org.label-schema.description="Image for handling requests, server requests" \
+        org.label-schema.vcs-ref=$VCS_REF \
+        org.label-schema.vcs-url="https://github.com/AllysonSilva/docker"
+
 ARG BUILD_DATE
 ARG VCS_REF
 
@@ -15,16 +24,20 @@ ENV DOMAIN_APP ${DOMAIN_APP:-app.com}
 ARG APP_PATH_PREFIX
 ENV APP_PATH_PREFIX ${APP_PATH_PREFIX:-/var/www}
 
-COPY --from=APP_IMAGE ${APP_PATH_PREFIX}/${DOMAIN_APP} ${APP_PATH_PREFIX}/${DOMAIN_APP}
+# Header Strict-Transport-Security
+ENV HSTS_HEADER=${HSTS_HEADER:-"max-age=31536000; includeSubdomains; preload"}
 
-LABEL   maintainer="Allyson Silva <support@allyson.tech>" \
-        description="Image for handling requests, server requests" \
-        version="nginx" \
-        org.label-schema.build-date=$BUILD_DATE \
-        org.label-schema.name="nginx" \
-        org.label-schema.description="Image for handling requests, server requests" \
-        org.label-schema.vcs-ref=$VCS_REF \
-        org.label-schema.vcs-url="https://github.com/AllysonSilva/docker"
+# Header Referrer-Policy
+ENV RP_HEADER=${RP_HEADER:-"strict-origin-when-cross-origin"}
+
+# Timezone
+ENV TZ=${TZ:-UTC}
+
+# Should be the same project container path as
+# the application that is running PHP-FPM
+ENV REMOTE_SRC=${APP_PATH_PREFIX}/${DOMAIN_APP}
+
+COPY --from=APP_IMAGE ${APP_PATH_PREFIX}/${DOMAIN_APP} ${APP_PATH_PREFIX}/${DOMAIN_APP}
 
 RUN set -x \
         && apt-get update \

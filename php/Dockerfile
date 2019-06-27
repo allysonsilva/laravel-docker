@@ -47,7 +47,7 @@ ENV PHP_AMQP_VERSION 1.9.4
 # Event-driven asynchronous and concurrent networking engine with high performance for PHP.
 # https://github.com/swoole/swoole-src
 ARG INSTALL_PHP_SWOOLE=false
-ENV PHP_SWOOLE_VERSION 4.3.2
+ENV PHP_SWOOLE_VERSION 4.3.5
 
 # Install the PHP EXTENSIONS
 RUN set -eux; \
@@ -182,7 +182,7 @@ RUN set -ex \
 ########
 
 ARG INSTALL_PHP_MONGO=false
-ENV PHP_MONGO_VERSION 1.5.3
+ENV PHP_MONGO_VERSION 1.5.5
 RUN if [ $INSTALL_PHP_MONGO = true ]; then \
             pecl install mongodb-${PHP_MONGO_VERSION} \
             && docker-php-ext-enable mongodb \
@@ -249,7 +249,7 @@ RUN if [ $INSTALL_PHP_REDIS = true ]; then \
 ########
 
 ARG INSTALL_PHP_DS=true
-ENV PHP_DS_VERSION 1.2.8
+ENV PHP_DS_VERSION 1.2.9
 RUN if [ $INSTALL_PHP_DS = true ]; then \
             pecl install ds-${PHP_DS_VERSION} && \
             docker-php-ext-enable ds \
@@ -292,7 +292,7 @@ RUN set -eux; \
 #####
 
 ARG INSTALL_PHP_XDEBUG=true
-ENV PHP_XDEBUG_VERSION 2.7.0
+ENV PHP_XDEBUG_VERSION 2.7.2
 RUN if [ $INSTALL_PHP_XDEBUG = true ]; then \
             yes | pecl install xdebug-$PHP_XDEBUG_VERSION && \
             docker-php-ext-enable xdebug \

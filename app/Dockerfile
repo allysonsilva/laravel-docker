@@ -28,6 +28,7 @@ COPY bootstrap/ bootstrap/
 COPY config/ config/
 COPY database/ database/
 COPY routes/ routes/
+COPY storage/framework storage/framework
 COPY artisan artisan
 COPY .env.example .env.example
 
@@ -62,7 +63,7 @@ COPY package.json webpack.mix.js ./
 COPY resources/ resources/
 
 RUN set -ex \
-        && yarn install && yarn production
+        && npm install && npm run production
 
 #####
 ## APPLICATION
@@ -72,8 +73,8 @@ FROM $PHP_BASE_IMAGE
 
 # Add label for documentation
 LABEL maintainer="Allyson Silva <support@allyson.tech>" \
-        description="Final image for production and use of the application in Laravel" \
-        version="prod"
+      description="Final image for production and use of the application in Laravel" \
+      version="prod"
 
 # If an ARG instruction has a default value and if there is no value passed at build-time, the builder uses the default
 ARG DOMAIN_APP
@@ -187,14 +188,14 @@ COPY --from=vendor /app/composer.lock ./composer.lock
 COPY --from=vendor /app/bootstrap/ ./bootstrap/
 COPY --from=vendor /app/config/ ./config/
 COPY --from=vendor /app/routes/ ./routes/
+COPY --from=vendor /app/storage/framework ./storage/framework
 
 COPY --from=vendor /app/.env.example ./.env.example
 COPY --from=vendor /app/.env ./.env
 
 ## Copy from {frontend} stage
 COPY --from=frontend /app/public/ ./public/
-COPY --from=frontend /app/mix-manifest.json ./mix-manifest.json
-# COPY --from=frontend /app/node_modules/ ./node_modules/
+COPY --from=frontend /app/public/mix-manifest.json ./public/mix-manifest.json
 
 ## MYSQL
 COPY --chown=app:app ${DOCKER_FOLDER_PATH}/mysql/ssl/client-key.pem ${REMOTE_SRC}/database/docker/mysql/ssl/client-key.pem
@@ -206,8 +207,8 @@ COPY --chown=app:app ${DOCKER_FOLDER_PATH}/mongodb/ssl/rootCA.pem ${REMOTE_SRC}/
 COPY --chown=app:app ${DOCKER_FOLDER_PATH}/mongodb/ssl/client.pem ${REMOTE_SRC}/database/docker/mongodb/ssl/client.pem
 
 # Remove folder docker
-RUN     if [ -d docker ]; then \
-            rm -rf docker \
+RUN     if [ -d ${DOCKER_FOLDER_PATH} ]; then \
+            rm -rf ${DOCKER_FOLDER_PATH} \
         ;fi
 
 ###
