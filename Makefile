@@ -16,11 +16,11 @@ app_env ?= production
 project_environment ?= production
 
 uname_OS := $(shell uname -s)
-user_UID := 1001
-user_GID := 1002
-ifeq ($(uname_OS),Linux)
-	user_UID := $(shell id -u)
-	user_GID := $(shell id -g)
+user_UID := $(shell id -u)
+user_GID := $(shell id -g)
+ifeq ($(uname_OS),Darwin)
+	user_UID := 1001
+	user_GID := 1002
 endif
 
 # # Detect operating system in Makefile
@@ -62,8 +62,9 @@ help:
 	@echo "usage: make COMMAND"
 	@echo ""
 	@echo "Commands:"
+	@echo "  build               Initializes and configures docker in the application"
+	@echo "  app-ssl-certs       Generate LOCAL SSL certificates for single domain"
 	@echo "  pull                Download images"
-	@echo "  build               Build project images"
 	@echo "  build-nginx         Build the NGINX image to act as a reverse proxy"
 	@echo "  run-nginx           Create a container for the webserver with docker run"
 	@echo "  in-nginx            Access the NGINX container"
@@ -83,6 +84,51 @@ help:
 	@echo "  mysql-dump          Create backup of all databases"
 	@echo "  mysql-restore       Restore backup of all databases"
 
+build:
+	# # DOWNLOAD IMAGES USED IN IMAGES
+	make pull
+	# # DOCKER INIT CONFIG
+	cp .env.example .env
+	cp app/app.env.example app/app.env
+	cp queue/queue.env.example queue/queue.env
+	cp scheduler/scheduler.env.example scheduler/scheduler.env
+	sed -i "/# PWD=.*/c\PWD=\"$(shell pwd)\"" .env
+	sed -i "/COMPOSE_PROJECT_NAME=.*/c\COMPOSE_PROJECT_NAME=AppDocker" .env
+	sed -i "/DOCKER_FOLDER_PATH=.*/c\DOCKER_FOLDER_PATH=${docker_folder_path}" .env
+	sed -i "/DOMAIN_APP=.*/c\DOMAIN_APP=${domain_app}" .env
+	sed -i "/APP_PATH_PREFIX=.*/c\APP_PATH_PREFIX=${app_path_prefix}" .env
+	sed -i "/REMOTE_SRC=.*/c\REMOTE_SRC=${remote_src}" .env
+	sed -i "/PROJECT_ENVIRONMENT=.*/c\PROJECT_ENVIRONMENT=${project_environment}" .env
+	# # DOCKER IMAGES
+	make build-php php_base_image_name=${php_base_image_name}
+	make build-app \
+		domain_app=${domain_app} \
+		app_image_name=${app_image_name} \
+		docker_folder_path=${docker_folder_path} \
+		php_base_image_name=${php_base_image_name} \
+		app_env=${app_env} \
+		project_environment=${project_environment}
+	make build-queue app_queue_image_name=${app_queue_image_name} app_image_name=${app_image_name}
+	make build-scheduler app_scheduler_image_name=${app_scheduler_image_name} app_image_name=${app_image_name}
+	make build-nginx \
+		domain_app=${domain_app} \
+		app_image_name=${app_image_name} \
+		app_path_prefix=${app_path_prefix} \
+		nginx_image_name=${nginx_image_name}
+
+# GENERATE SSL WEBSERVER
+# make app-ssl-certs domain_app=mydomain.com
+app-ssl-certs:
+	test -s ./nginx/certs/dhparam4096.pem || { openssl dhparam -out ./nginx/certs/dhparam4096.pem 4096; }
+	minica --domains ${domain_app},www.${domain_app} \
+		&& mv ${domain_app}/cert.pem ./nginx/certs/fullchain.pem \
+		&& mv ${domain_app}/key.pem ./nginx/certs/privkey.pem \
+		&& rm -rf ${domain_app} && rm minica-key.pem && rm minica.pem
+	# openssl req -x509 -nodes -newkey rsa:2048 -days 3650 \
+	# 	-keyout ./nginx/certs/privkey.pem \
+	# 	-out ./nginx/certs/fullchain.pem \
+	# 	-subj "/C=BR/ST=State/L=Locality/O=Organization Name/OU=Organizational Unit Name/CN=${domain_app}"
+
 pull:
 	docker pull composer:1.8
 	docker pull node:11-alpine
@@ -91,17 +137,10 @@ pull:
 	docker pull mongo:4.1
 	docker pull php:7.3-fpm
 	docker pull redis:5-alpine
-	docker pull traefik:1.7-alpine
-	docker pull containous/whoami:latest
+	# docker pull traefik:1.7-alpine
+	# docker pull containous/whoami:latest
 
-build:
-	make build-php
-	make build-nginx
-	make build-app
-	make build-queue
-	make build-scheduler
-
-# $> make build-nginx nginx_image_name=webserver:3.0 domain_app=mydomain.com
+# $> make build-nginx nginx_image_name=webserver:3.0 app_image_name=app:3.0 domain_app=mydomain.com
 build-nginx:
 	docker build -t ${nginx_image_name} -f ./nginx/Dockerfile \
 		--build-arg DOMAIN_APP=${domain_app} \
@@ -137,8 +176,9 @@ build-php:
 		--build-arg DEFAULT_USER_GID=${user_GID} \
 	- < ./php/Dockerfile
 
+# $> make build-full-php php_base_image_name=app:base
 build-full-php:
-	docker build -t app:base \
+	docker build -t ${php_base_image_name} \
 		--build-arg DEFAULT_USER=app \
 		--build-arg DEFAULT_USER_UID=${user_UID} \
 		--build-arg DEFAULT_USER_GID=${user_GID} \
@@ -154,7 +194,7 @@ build-full-php:
 		--build-arg INSTALL_PHP_XDEBUG=true \
 	- < ./php/Dockerfile
 
-# $> make build-app app_env=production||local project_environment=production||development app_image_name=app:3.0 domain_app=mydomain.com
+# $> make build-app app_env=production||local project_environment=production||development app_image_name=app:3.0 php_base_image_name=app:base domain_app=mydomain.com
 build-app:
 	docker build -t ${app_image_name} -f ./app/Dockerfile \
 		--build-arg DOMAIN_APP=${domain_app} \

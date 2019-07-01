@@ -97,15 +97,13 @@ echo
 
 if [[ $LARAVEL_QUEUE_MANAGER == "horizon" ]]; then
 
-    if [[ $(php artisan horizon 2>&1 >/dev/null) ]]; then
-        echo "Laravel - Horizon is already installed"
-    else
+    if [[ $(composer show laravel/horizon 2>&1 >/dev/null) ]]; then
         echo "Laravel/Composer - Install Horizon"
 
         composer require laravel/horizon
-        # # php artisan queue:failed-table
-        # # php artisan migrate
         php artisan horizon:install
+    else
+        echo "Laravel - Horizon is already installed"
     fi
 
     echo "Running the [HORIZON] Service..."

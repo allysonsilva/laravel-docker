@@ -13,6 +13,10 @@ docs/_build
 docs/_static
 docs/_templates
 
+app.env
+queue.env
+scheduler.env
+
 app/ssl/
 elastic/config/elasticsearch/elasticsearch.crt
 elastic/config/elasticsearch/elasticsearch.key

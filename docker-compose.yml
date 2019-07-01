@@ -3,7 +3,7 @@ version: '3.7'
 networks:
     NetworkApp:
         driver: bridge
-        name: NetworkApp
+        name: network_app
         ipam:
             driver: default
             config:
@@ -16,12 +16,26 @@ volumes:
     mySQLData:
     mongoDBData:
     redisData:
-    localBindApp:
-        driver: local
-        driver_opts:
-            type: none
-            device: $PWD/${LOCAL_SRC}
-            o: bind
+
+secrets:
+    dhparam4096.pem:
+        file: ./nginx/certs/dhparam4096.pem
+    privkey.pem:
+        file: ./nginx/certs/privkey.pem
+    fullchain.pem:
+        file: ./nginx/certs/fullchain.pem
+    # chain.pem:
+    #     file: ./nginx/certs/chain.pem
+    mysql_ca:
+        file: ./mysql/ssl/ca.pem
+    mysql_server_key:
+        file: ./mysql/ssl/server-key.pem
+    mysql_server_cert:
+        file: ./mysql/ssl/server-cert.pem
+    mongodb_ca:
+        file: ./mongodb/ssl/rootCA.pem
+    mongodb_server:
+        file: ./mongodb/ssl/server.pem
 
 services:
 
@@ -64,7 +78,7 @@ services:
     #     networks:
     #         NetworkTraefik:
 
-    # # redis-cli -h 127.0.0.1 -p 63781 -a 'HQD3{9S-u(qnxK@'
+    # # redis-cli -n 0 -h 127.0.0.1 -p 63781 -a 'HQD3{9S-u(qnxK@'
     redis:
         image: redis:5-alpine
         hostname: redis
@@ -81,7 +95,7 @@ services:
                 ipv4_address: 172.31.1.2
         healthcheck:
             test: ["CMD-SHELL", "redis-cli -h 127.0.0.1 -p 6379 -a 'HQD3{9S-u(qnxK@' --no-auth-warning PING"]
-            interval: 10s
+            interval: 60s
             timeout: 5s
             retries: 5
 
@@ -94,10 +108,14 @@ services:
         hostname: database
         container_name: database
         command: ["mysqld"]
+        secrets:
+            - source: mysql_ca
+              target: /etc/mysql-ssl/ca.pem
+            - source: mysql_server_key
+              target: /etc/mysql-ssl/server-key.pem
+            - source: mysql_server_cert
+              target: /etc/mysql-ssl/server-cert.pem
         volumes:
-            - ./mysql/ssl/ca.pem:/etc/mysql-ssl/ca.pem:ro
-            - ./mysql/ssl/server-cert.pem:/etc/mysql-ssl/server-cert.pem:ro
-            - ./mysql/ssl/server-key.pem:/etc/mysql-ssl/server-key.pem:ro
             - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
             - mySQLData:/var/lib/mysql
         env_file:
@@ -110,7 +128,7 @@ services:
                 ipv4_address: 172.31.1.3
         healthcheck:
             test: "export MYSQL_PWD='5?qqSm3_@mqrJ_'; mysqladmin -h 127.0.0.1 -P 3306 --user=root --silent ping"
-            interval: 10s
+            interval: 60s
             timeout: 5s
             retries: 3
 
@@ -123,13 +141,16 @@ services:
         hostname: mongodb
         container_name: mongodb
         command: ["mongod", "--config", "/etc/mongo/mongod.conf"]
+        secrets:
+            - source: mongodb_ca
+              target: /etc/ssl/ca.pem
+            - source: mongodb_server
+              target: /etc/ssl/server.pem
         ports:
             - "29019:27017"
         volumes:
             - ./mongodb/mongod.conf:/etc/mongo/mongod.conf:ro
             - ./mongodb/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
-            - ./mongodb/ssl/rootCA.pem:/etc/ssl/ca.pem:ro
-            - ./mongodb/ssl/server.pem:/etc/ssl/server.pem:ro
             - mongoDBData:/data/db
         environment:
             MONGO_INITDB_ROOT_USERNAME: root
@@ -143,14 +164,24 @@ services:
         image: ${WEBSERVER_IMAGE}
         hostname: webserver
         container_name: webserver
+        secrets:
+            - source: dhparam4096.pem
+              target: /etc/nginx/certs/dhparam4096.pem
+            - source: privkey.pem
+              target: /etc/nginx/certs/privkey.pem
+            - source: fullchain.pem
+              target: /etc/nginx/certs/fullchain.pem
+            # - source: chain.pem
+            #   target: /etc/nginx/certs/chain.pem
         build:
             context: ./nginx
             dockerfile: Dockerfile
             args:
                 DOMAIN_APP: ${DOMAIN_APP}
+                TAG_APP_IMAGE: ${APP_IMAGE}
                 APP_PATH_PREFIX: ${APP_PATH_PREFIX}
         environment:
-            ONLY_APP: "true"
+            ONLY_APP: ${ONLY_APP}
             DOMAIN_APP: ${DOMAIN_APP}
             APP_PATH_PREFIX: ${APP_PATH_PREFIX}
         ports:
@@ -173,10 +204,6 @@ services:
         #         soft: 32768
         #         hard: 65535
         working_dir: ${REMOTE_SRC}
-        # volumes:
-        #     - type: volume
-        #       source: localBindApp
-        #       target: ${REMOTE_SRC}
         links:
             - "app:php-fpm"
 
@@ -193,6 +220,7 @@ services:
                 DOMAIN_APP: ${DOMAIN_APP}
                 APP_PATH_PREFIX: ${APP_PATH_PREFIX}
                 DOCKER_FOLDER_PATH: ${DOCKER_FOLDER_PATH}
+                PROJECT_ENVIRONMENT: ${PROJECT_ENVIRONMENT}
         working_dir: ${REMOTE_SRC}
             # When you set the same environment variable in multiple files, here’s the priority used by Compose to choose which value to use:
             # 1. Compose file
@@ -216,12 +244,6 @@ services:
         #     nofile:
         #         soft: 32768
         #         hard: 65535
-        # volumes:
-            # # Used [:delegated] or [:cached] mode here on docker for MAC for faster disk I/O
-            # - ${LOCAL_SRC}:${REMOTE_SRC}:delegated
-            # - ./app/config/php.ini-production.ini:/usr/local/etc/php/php.ini:ro
-            # - ./app/config/extensions/opcache.ini:/usr/local/etc/php/conf.d/docker-php-ext-opcache.ini
-            # - ./app/config/extensions/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
         networks:
             NetworkApp:
                 ipv4_address: 172.31.1.6
@@ -246,8 +268,6 @@ services:
         ports:
             - "8082:8080"
         depends_on: ['redis', 'database']
-        # volumes:
-        #     - ${LOCAL_SRC}:${REMOTE_SRC}:delegated
         networks:
             NetworkApp:
                 ipv4_address: 172.31.1.7
@@ -265,8 +285,6 @@ services:
         ports:
             - "8083:8080"
         depends_on: ['redis', 'database']
-        # volumes:
-        #     - ${LOCAL_SRC}:${REMOTE_SRC}:delegated
         networks:
             NetworkApp:
                 ipv4_address: 172.31.1.8

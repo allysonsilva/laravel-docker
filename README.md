@@ -49,12 +49,13 @@
 ├── .env.example
 ├── Makefile
 ├── docker-compose.yml
+├── docker-compose.override.yml
 ├── php
 │   └── Dockerfile
 ├── app
 │   ├── Dockerfile
 │   ├── docker-entrypoint.sh
-│   ├── app.env
+│   ├── app.env.example
 │   └── config
 │       ├── php.ini-development.ini
 │       ├── php.ini-production.ini
@@ -69,7 +70,7 @@
 ├── queue
 │   ├── Dockerfile
 │   ├── docker-entrypoint.sh
-│   ├── queue.env
+│   ├── queue.env.example
 │   └── config
 │       ├── supervisord.conf
 │       └── templates
@@ -78,7 +79,7 @@
 ├── scheduler
 │   ├── Dockerfile
 │   ├── docker-entrypoint.sh
-│   ├── scheduler.env
+│   ├── scheduler.env.example
 │   └── cron-jobs
 │       └── laravel-scheduler
 ├── nginx
@@ -92,7 +93,6 @@
 │   │   ├── fullchain.pem
 │   │   └── privkey.pem
 │   ├── config
-│   │   ├── fastcgi.conf
 │   │   ├── mime.types
 │   │   ├── nginx.conf
 │   │   ├── servers
@@ -102,13 +102,16 @@
 │   │   │   ├── site.conf
 │   │   │   └── webmail.conf
 │   │   └── snippets
-│   │       ├── PHP_FPM.conf
-│   │       ├── cache_expiration.conf
-│   │       ├── deny_ips.conf
-│   │       ├── real_ip.conf
-│   │       ├── security_http_headers.conf
-│   │       ├── ssl_best_practices.conf
-│   │       └── ssl_common_certificates.conf
+│   │       ├── php
+│   │       │   ├── fastcgi.conf
+│   │       │   └── php_fpm.conf
+│   │       └── server
+│   │           ├── cache_expiration.conf
+│   │           ├── deny_ips.conf
+│   │           ├── real_ip.conf
+│   │           ├── security_http_headers.conf
+│   │           ├── ssl_best_practices.conf
+│   │           └── ssl_common_certificates.conf
 │   └── helpers
 │       └── cert-status.sh
 ├── redis
@@ -231,6 +234,35 @@ $ git clone https://github.com/AllysonSilva/laravel-docker docker && cd docker
 - **Uncomment the `PWD` variable and fill it with result `echo $PWD`**
 - **Use the `DOCKER_FOLDER_PATH` variable in the `.env` file for the folder name `docker`**
 
+### Init build(Local or Development)
+
+- To generate SSL certificates using the [minica](https://github.com/jsha/minica) package, use the following command:
+
+```bash
+make app-ssl-certs domain_app=yourdomain.tld
+```
+
+- To build all the images that will be used by `docker-compose`, use the following initialization:
+
+```bash
+make build \
+    domain_app=yourdomain.tld \
+    app_path_prefix=/var/www \
+    remote_src=/var/www/yourdomain.tld/ \
+    app_env=local \
+    project_environment=development \
+    docker_folder_path=./docker
+```
+
+- Add the domain in `/etc/hosts`
+
+```bash
+sudo tee -a /etc/hosts >/dev/null <<EOF
+127.0.0.1  yourdomain.tld
+127.0.0.1  www.yourdomain.tld
+EOF
+```
+
 ### Download docker images
 
 Run the `make pull` command to download the images that will be used in `docker-compose.yml` or `make` commands.
@@ -265,7 +297,6 @@ If you want to customize the image construction according to your arguments, use
 
 ```bash
 docker build -t app:base \
-    --build-arg REMOTE_SRC=/var/www/mydomain.com/ \
     --build-arg DEFAULT_USER=app \
     --build-arg DEFAULT_USER_UID=$UID \
     --build-arg DEFAULT_USER_GID=$(id -g) \
@@ -274,11 +305,12 @@ docker build -t app:base \
 
 Use the `--build-arg` option to customize/install specific _PHP_ extensions according to the arguments in the `Dockerfile` of the image.
 
+See Docker's [documentation]([https://docs.docker.com/engine/reference/builder/#arg](https://docs.docker.com/engine/reference/builder/#arg)) the `ARG` statement in `Dockerfile`
+
 _The values of the arguments below represent default arguments that are used when the `docker build` command is executed without any custom arguments._
 
 ```bash
 docker build -t app:base \
-    --build-arg REMOTE_SRC=/var/www/mydomain.com/ \
     --build-arg DEFAULT_USER=app \
     --build-arg DEFAULT_USER_UID=$UID \
     --build-arg DEFAULT_USER_GID=$(id -g) \
@@ -295,7 +327,11 @@ docker build -t app:base \
 - < ./php/Dockerfile
 ```
 
-See Docker's [documentation]([https://docs.docker.com/engine/reference/builder/#arg](https://docs.docker.com/engine/reference/builder/#arg)) the `ARG` statement in `Dockerfile`
+To create the image with all extensions enabled by default, use the following command:
+
+```bash
+$ make build-full-php php_base_image_name=app:base
+```
 
 ### Laravel APP/PHP-FPM
 
@@ -334,7 +370,12 @@ See Docker's [documentation]([https://docs.docker.com/engine/reference/builder/#
 Use the following command to build the image:
 
 ```bash
-$ make build-app app_env=production||local project_environment=production||development app_image_name=app:3.0 domain_app=mydomain.com
+make build-app \
+    domain_app=mydomain.com \
+    app_env=production||local \
+    project_environment=production||development \
+    app_image_name=app:3.0 \
+    php_base_image_name=app:base
 ```
 
 If you want to customize the image construction according to your arguments, use the `docker build` command directly:
@@ -421,12 +462,15 @@ php artisan serve --port=8080 --host=0.0.0.0
 - Use the [Let's Encrypt](https://letsencrypt.org/) to generate SSL certificates and perform the NGINX SSL configuration to use the **HTTPS** protocol
     * Folder `nginx/certs/` should contain the files created by _Let's Encrypt_. It should contain the files: `cert.pem`, `chain.pem`, `dhparam4096.pem`, `fullchain.pem`, `privkey.pem`
 - To generate the certificates use or customize the script: `make gen-certs domain_app=mydomain.com`
-- There are 4 configurations of _virtual server_, which are: `api.mydomain.com`, `admin.mydomain.com`, `mydomain.com`, `webmail.mydomain.com`. All within the folder `nginx/servers/`
+- There are 4 configurations of _virtual server_, which are: `mydomain.com`, `api.mydomain.com`, `admin.mydomain.com`, `webmail.mydomain.com`. All within the folder `nginx/servers/`
 
 Use the following command to build the image:
 
 ```bash
-$ make build-nginx nginx_image_name=webserver:3.0 domain_app=mydomain.com
+make build-nginx \
+    domain_app=mydomain.com \
+    nginx_image_name=webserver:3.0 \
+    app_image_name=app:3.0
 ```
 
 - `nginx_image_name`: Parameter used for TAG of the image
@@ -455,7 +499,7 @@ docker run \
         -t webserver:3.0
 ```
 
-To use only the `servers/app.conf` configuration of the serves use the [`ONLY_APP`](nginx/docker-entrypoint.sh#L45) option as the environment variable passing its value to `true`:
+To use only the `servers/app.conf`(single domain) configuration of the serves use the [`ONLY_APP`](nginx/docker-entrypoint.sh#L45) option as the environment variable passing its value to `true`:
 
 ```bash
 docker run \
@@ -795,25 +839,74 @@ When developing, you can use [Makefile](https://en.wikipedia.org/wiki/Make_(soft
 
 | Name                | Description                                               |
 |---------------------|-----------------------------------------------------------|
+| build               | Initializes and configures docker in the application      |
+| app-ssl-certs       | Generate LOCAL SSL certificates for single domain         |
 | pull                | Download images                                           |
-| build               | Build project images                                      |
 | build-nginx         | Build the NGINX image to act as a reverse proxy           |
+| run-nginx           | Create a container for the webserver with docker run      |
 | in-nginx            | Access the NGINX container                                |
 | build-php           | Build the base image of projects in PHP                   |
-| build-app           | Build the image with settings for Laravel/PHP projects    |
-| run-app             | Create a container for the application with docker run    |
-| build-queue         | Build the image to act as queue management                |
-| build-scheduler     | Build the image to act as scheduler management            |
-| app-code-phpcs      | Check the APP with PHP Code Sniffer (`PSR2`)              |
-| app-code-phpmd      | Analyse the APP with PHP Mess Detector                    |
-| docker-clean        | Remove docker images with filter `<none>`                 |
-| run-traefik         | Create a container for the traefik with docker run        |
-| docker-stop         | Stop and execute $> make docker-clean                     |
-| composer-up         | Update PHP dependencies with composer                     |
-| gen-certs           | Generate SSL certificates                                 |
-| get-certs           | Retrieves certificate expiration dates                    |
-| mysql-dump          | Create backup of all databases                            |
-| mysql-restore       | Restore backup of all databases                           |
+| build-full-php      | Build the base image of projects in PHP with all extensions and components enabled by default |
+| build-app           | Build the image with settings for Laravel/PHP projects                                        |
+| run-app             | Create a container for the application with docker run                                        |
+| build-queue         | Build the image to act as queue management. Extends the default project image (build-app)     |
+| build-scheduler     | Build the image to act as scheduler management. Extends the default project image (build-app) |
+| app-code-phpcs      | Check the APP with PHP Code Sniffer (`PSR2`)                |
+| app-code-phpmd      | Analyse the APP with PHP Mess Detector                      |
+| docker-clean        | Remove docker images with filter `<none> `                  |
+| docker-stop         | Stop and execute $> make docker-clean                       |
+| composer-up         | Update PHP dependencies with composer                       |
+| gen-certs           | Generate SSL certificates                                   |
+| get-certs           | Retrieves certificate expiration dates                      |
+| mysql-dump          | Create backup of all databases                              |
+| mysql-restore       | Restore backup of all databases                             |
+
+## Troubleshooting
+
+### GNU sed on MAC OS
+
+In Makefile need GNU sed to work so replace BSD sed with GNU sed using:
+
+```bash
+brew install gnu-sed
+```
+
+Update the default shell (bashrc or zshrc):
+
+```bash
+if brew ls --versions gnu-sed > /dev/null; then
+  export PATH="$(brew --prefix gnu-sed)/libexec/gnubin:$PATH"
+fi
+# or
+export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"
+```
+
+_Reload shell:_
+
+```bash
+source ~/.bashrc
+# or
+source ~/.zshrc
+```
+
+Check you version of sed with:
+
+```bash
+man sed
+```
+
+sed GNU version path is:
+
+```
+$ which sed
+/usr/local/opt/gnu-sed/libexec/gnubin/sed
+```
+
+Instead of default path of BSD sed (installed by default on MAC OS):
+
+```bash
+/usr/bin/sed
+```
 
 ## Assumptions
 

@@ -28,32 +28,31 @@ echo ${TZ} > /etc/timezone
 # Nginx
 echo "Setting Nginx configuration ..."
 
-find /etc/nginx -type f -exec sed -i \
-                                        -e "s/\\\.example\\\.com/\\\.$(echo $DOMAIN_APP | sed 's/\./\\\\./g')/g" \
-                                        -e "s/example\\\.com/$(echo $DOMAIN_APP | sed 's/\./\\\\./g')/g" \
-                                    {} \;
+find /etc/nginx/servers /etc/nginx/snippets /etc/nginx/nginx.conf \
+                -type f -exec sed -i \
+                    -e "s/\\\.example\\\.com/\\\.$(echo $DOMAIN_APP | sed 's/\./\\\\./g')/g" \
+                    -e "s/example\\\.com/$(echo $DOMAIN_APP | sed 's/\./\\\\./g')/g" \
+                {} \;
 
-find /etc/nginx -type f -exec sed -i \
-                                        -e "s|{{DOMAIN_APP}}|$DOMAIN_APP|g" \
-                                        -e "s,{{APP_PATH_PREFIX}},$APP_PATH_PREFIX,g" \
-                                    {} \;
+find /etc/nginx/servers \
+                -type f -exec sed -i \
+                    -e "s|{{DOMAIN_APP}}|$DOMAIN_APP|g" \
+                    -e "s,{{APP_PATH_PREFIX}},$APP_PATH_PREFIX,g" \
+                {} \;
 
-sed -i \
-        -e "s/@HSTS_HEADER@/$HSTS_HEADER/g" \
-        -e "s/@RP_HEADER@/$RP_HEADER/g" /etc/nginx/snippets/server/security_http_headers.conf
+sed -i "s/@HSTS_HEADER@/$HSTS_HEADER/g" /etc/nginx/snippets/server/security_http_headers.conf
 
 if [[ "${ONLY_APP:-false}" == true ]]; then
     # Will remove all regular files (recursively, including hidden ones) except app.conf.
     find /etc/nginx/servers/* ! -name 'app.conf' -type f -exec rm -f {} +
+    echo "Fixing CACHE permissions..."
+    fixperms /var/cache/nginx
     else
         if [ -f /etc/nginx/servers/app.conf ]; then
             # Remove DUPLICATED-conflicting server name [APP]
             rm /etc/nginx/servers/app.conf
         fi
 fi
-
-echo "Fixing permissions..."
-fixperms "$REMOTE_SRC" /var/cache/nginx
 
 # echo "Installing APP"
 # runas_nginx "php artisan serve --port=8080 &>/dev/null"

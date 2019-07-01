@@ -44,12 +44,6 @@ RUN set -ex \
             --no-scripts \
             --no-interaction
 
-RUN set -ex \
-        && composer dump-autoload --optimize --classmap-authoritative --no-dev --ansi \
-        && composer run-script post-root-package-install
-        # # do not run php artisan key:generate --ansi
-        # && composer run-script post-create-project-cmd
-
 #####
 ## FRONTEND
 #####
@@ -62,8 +56,10 @@ WORKDIR /app
 COPY package.json webpack.mix.js ./
 COPY resources/ resources/
 
+ARG PROJECT_ENVIRONMENT
+
 RUN set -ex \
-        && npm install && npm run production
+        && npm install && npm run ${PROJECT_ENVIRONMENT}
 
 #####
 ## APPLICATION
@@ -190,9 +186,6 @@ COPY --from=vendor /app/config/ ./config/
 COPY --from=vendor /app/routes/ ./routes/
 COPY --from=vendor /app/storage/framework ./storage/framework
 
-COPY --from=vendor /app/.env.example ./.env.example
-COPY --from=vendor /app/.env ./.env
-
 ## Copy from {frontend} stage
 COPY --from=frontend /app/public/ ./public/
 COPY --from=frontend /app/public/mix-manifest.json ./public/mix-manifest.json
@@ -241,6 +234,12 @@ RUN chmod +x /entrypoint.sh
 
 # Define the running USER
 USER $DEFAULT_USER
+
+RUN set -ex \
+        && composer dump-autoload --optimize --classmap-authoritative --no-dev --ansi \
+        && composer run-script post-root-package-install
+        # # do not run php artisan key:generate --ansi
+        # && composer run-script post-create-project-cmd
 
 RUN set -ex && \
         # @see https://tighten.co/blog/app-key-and-you

@@ -27,9 +27,6 @@ ENV APP_PATH_PREFIX ${APP_PATH_PREFIX:-/var/www}
 # Header Strict-Transport-Security
 ENV HSTS_HEADER=${HSTS_HEADER:-"max-age=31536000; includeSubdomains; preload"}
 
-# Header Referrer-Policy
-ENV RP_HEADER=${RP_HEADER:-"strict-origin-when-cross-origin"}
-
 # Timezone
 ENV TZ=${TZ:-UTC}
 
@@ -37,7 +34,7 @@ ENV TZ=${TZ:-UTC}
 # the application that is running PHP-FPM
 ENV REMOTE_SRC=${APP_PATH_PREFIX}/${DOMAIN_APP}
 
-COPY --from=APP_IMAGE ${APP_PATH_PREFIX}/${DOMAIN_APP} ${APP_PATH_PREFIX}/${DOMAIN_APP}
+COPY --from=APP_IMAGE --chown=www-data:www-data ${APP_PATH_PREFIX}/${DOMAIN_APP} ${APP_PATH_PREFIX}/${DOMAIN_APP}
 
 RUN set -x \
         && apt-get update \
