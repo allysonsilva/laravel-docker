@@ -47,7 +47,7 @@ ENV PHP_AMQP_VERSION 1.9.4
 # Event-driven asynchronous and concurrent networking engine with high performance for PHP.
 # https://github.com/swoole/swoole-src
 ARG INSTALL_PHP_SWOOLE=false
-ENV PHP_SWOOLE_VERSION 4.3.5
+ENV PHP_SWOOLE_VERSION 4.4.4
 
 # Install the PHP EXTENSIONS
 RUN set -eux; \
@@ -233,7 +233,7 @@ RUN if [ $INSTALL_PHP_MESSAGEPACK = true ]; then \
 ########
 
 ARG INSTALL_PHP_REDIS=true
-ENV PHP_REDIS_VERSION 4.3.0
+ENV PHP_REDIS_VERSION 5.0.2
 RUN if [ $INSTALL_PHP_REDIS = true ]; then \
             # /configure --with-php-config=/usr/local/bin/php-config \
             #            --enable-redis-igbinary=yes \
