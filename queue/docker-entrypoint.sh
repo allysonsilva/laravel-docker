@@ -59,10 +59,9 @@ if [ "$PROJECT_ENVIRONMENT" == "development" ]; then
     echo "Laravel - Clear all and permissions [Development]"
     echo
 
-    php artisan clear-compiled
-    php artisan view:clear
-    php artisan config:clear
-    php artisan route:clear
+    # $> {view:clear} && {cache:clear} && {route:clear} && {config:clear} && {clear-compiled}
+    # @see https://github.com/laravel/framework/blob/5.8/src/Illuminate/Foundation/Console/OptimizeClearCommand.php#L28
+    php artisan optimize:clear
 fi
 
 if [[ $PROJECT_ENVIRONMENT == "production" ]]; then
@@ -80,9 +79,9 @@ if [[ $PROJECT_ENVIRONMENT == "production" ]]; then
     echo "Laravel - Cache Optimization [Production]"
     echo
 
-    php artisan route:cache
-    # @see https://github.com/laravel/framework/issues/21727
-    php artisan config:cache
+    # $> {config:cache} && {route:cache}
+    # @see https://github.com/laravel/framework/blob/5.8/src/Illuminate/Foundation/Console/OptimizeCommand.php#L28
+    php artisan optimize
 fi
 
 ########

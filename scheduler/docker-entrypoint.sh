@@ -47,10 +47,9 @@ echo
 echo "Laravel - Cache Optimization"
 echo
 
-# PROD
-php artisan route:cache
-# @see https://github.com/laravel/framework/issues/21727
-php artisan config:cache
+# $> {config:cache} && {route:cache}
+# @see https://github.com/laravel/framework/blob/5.8/src/Illuminate/Foundation/Console/OptimizeCommand.php#L28
+php artisan optimize
 
 echo "Starting [CRON]"
 echo

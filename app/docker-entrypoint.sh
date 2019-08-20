@@ -255,6 +255,7 @@ configure_project_env() {
         run "composer run-script post-autoload-dump"
     fi
 
+    run "rm -rf ${REMOTE_SRC}public/storage"
     run "php artisan storage:link"
 
     if [[ $PROJECT_ENVIRONMENT == "production" ]]; then
@@ -264,9 +265,9 @@ configure_project_env() {
         # PRODUCTION
         log "info" "Laravel - Cache - Production"
 
-        run "php artisan route:cache"
-        # @see https://github.com/laravel/framework/issues/21727
-        run "php artisan config:cache"
+        # $> {config:cache} && {route:cache}
+        # @see https://github.com/laravel/framework/blob/5.8/src/Illuminate/Foundation/Console/OptimizeCommand.php#L28
+        run "php artisan optimize"
     fi
 
     if [ "$PROJECT_ENVIRONMENT" == "development" ]; then
@@ -276,11 +277,9 @@ configure_project_env() {
         # DEVELOPMENT
         log "info" "Laravel - Clear all and permissions"
 
-        run "php artisan clear-compiled"
-        run "php artisan view:clear"
-        run "php artisan config:clear"
-        run "php artisan route:clear"
-        # run "php artisan cache:clear"
+        # $> {view:clear} && {cache:clear} && {route:clear} && {config:clear} && {clear-compiled}
+        # @see https://github.com/laravel/framework/blob/5.8/src/Illuminate/Foundation/Console/OptimizeClearCommand.php#L28
+        run "php artisan optimize:clear"
     fi
 }
 
