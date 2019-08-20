@@ -63,7 +63,6 @@ help:
 	@echo ""
 	@echo "Commands:"
 	@echo "  build               Initializes and configures docker in the application"
-	@echo "  app-ssl-certs       Generate LOCAL SSL certificates for single domain"
 	@echo "  pull                Download images"
 	@echo "  build-nginx         Build the NGINX image to act as a reverse proxy"
 	@echo "  run-nginx           Create a container for the webserver with docker run"
@@ -79,7 +78,9 @@ help:
 	@echo "  docker-clean        Remove docker images with filter <none>"
 	@echo "  docker-stop         Stop and execute $$> make docker-clean"
 	@echo "  composer-up         Update PHP dependencies with composer"
+	@echo "  app-gen-fake-certs  Generate LOCAL SSL certificates for single domain"
 	@echo "  gen-certs           Generate SSL certificates"
+	@echo "  copy-certs          Copy Let's Encrypt SSL files"
 	@echo "  get-certs           Retrieves certificate expiration dates"
 	@echo "  mysql-dump          Create backup of all databases"
 	@echo "  mysql-restore       Restore backup of all databases"
@@ -103,6 +104,7 @@ build:
 	make build-php php_base_image_name=${php_base_image_name}
 	make build-app \
 		domain_app=${domain_app} \
+		app_path_prefix=${app_path_prefix} \
 		app_image_name=${app_image_name} \
 		docker_folder_path=${docker_folder_path} \
 		php_base_image_name=${php_base_image_name} \
@@ -115,19 +117,6 @@ build:
 		app_image_name=${app_image_name} \
 		app_path_prefix=${app_path_prefix} \
 		nginx_image_name=${nginx_image_name}
-
-# GENERATE SSL WEBSERVER
-# make app-ssl-certs domain_app=mydomain.com
-app-ssl-certs:
-	test -s ./nginx/certs/dhparam4096.pem || { openssl dhparam -out ./nginx/certs/dhparam4096.pem 4096; }
-	minica --domains ${domain_app},www.${domain_app} \
-		&& mv ${domain_app}/cert.pem ./nginx/certs/fullchain.pem \
-		&& mv ${domain_app}/key.pem ./nginx/certs/privkey.pem \
-		&& rm -rf ${domain_app} && rm minica-key.pem && rm minica.pem
-	# openssl req -x509 -nodes -newkey rsa:2048 -days 3650 \
-	# 	-keyout ./nginx/certs/privkey.pem \
-	# 	-out ./nginx/certs/fullchain.pem \
-	# 	-subj "/C=BR/ST=State/L=Locality/O=Organization Name/OU=Organizational Unit Name/CN=${domain_app}"
 
 pull:
 	docker pull composer:1.8
@@ -268,6 +257,18 @@ docker-stop:
 	@docker-compose down -v
 	@make docker-clean
 
+# make app-gen-fake-certs domain_app=mydomain.com
+app-gen-fake-certs:
+	test -s ./nginx/certs/dhparam4096.pem || { openssl dhparam -out ./nginx/certs/dhparam4096.pem 4096; }
+	minica --domains ${domain_app},www.${domain_app} \
+		&& mv ${domain_app}/cert.pem ./nginx/certs/fullchain.pem \
+		&& mv ${domain_app}/key.pem ./nginx/certs/privkey.pem \
+		&& rm -rf ${domain_app} && rm minica-key.pem && rm minica.pem
+	# openssl req -x509 -nodes -newkey rsa:2048 -days 3650 \
+	# 	-keyout ./nginx/certs/privkey.pem \
+	# 	-out ./nginx/certs/fullchain.pem \
+	# 	-subj "/C=BR/ST=State/L=Locality/O=Organization Name/OU=Organizational Unit Name/CN=${domain_app}"
+
 # $> make gen-certs domain_app=mydomain.com
 gen-certs:
 	@docker run \
@@ -288,6 +289,14 @@ gen-certs:
 					--email support@${domain_app} \
 					--rsa-key-size 4096 \
 					--no-bootstrap
+
+# $> make copy-certs domain_app=mydomain.com
+copy-certs:
+	@echo "Copying Let's Encrypt SSL files" \
+		&& cp -LR $(shell pwd)/nginx/certs/etc/letsencrypt/live/${domain_app}/fullchain.pem $(shell pwd)/nginx/certs/fullchain.pem \
+		&& cp -LR $(shell pwd)/nginx/certs/etc/letsencrypt/live/${domain_app}/privkey.pem $(shell pwd)/nginx/certs/privkey.pem \
+		&& cp -LR $(shell pwd)/nginx/certs/etc/letsencrypt/live/${domain_app}/chain.pem $(shell pwd)/nginx/certs/chain.pem \
+		&& cp -LR $(shell pwd)/nginx/certs/etc/letsencrypt/live/${domain_app}/cert.pem $(shell pwd)/nginx/certs/cert.pem
 
 get-certs:
 	@docker run \
