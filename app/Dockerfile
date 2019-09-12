@@ -269,9 +269,6 @@ ENTRYPOINT ["/entrypoint.sh"]
 # PHP-FPM
 EXPOSE 9000
 
-# XDEBUG
-EXPOSE 9001
-
 CMD ["/usr/local/sbin/php-fpm", "-y", "/usr/local/etc/php-fpm.conf", "--nodaemonize"]
 
 # vim:set ft=dockerfile:
