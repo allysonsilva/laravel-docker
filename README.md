@@ -231,8 +231,14 @@ $ git clone https://github.com/AllysonSilva/laravel-docker docker && cd docker
 ```
 
 - **Rename the `.env.example` file to `.env`**
-- **Uncomment the `PWD` variable and fill it with result `echo $PWD`**
+- **Uncomment the `pwd` variable and fill it with result `echo $PWD`**
 - **Use the `DOCKER_FOLDER_PATH` variable in the `.env` file for the folder name `docker`**
+
+**Customize Running in Development**
+
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.override.yml up database redis app webserver queue
+```
 
 ### Init build(Local or Development)
 
@@ -524,9 +530,9 @@ docker run \
 **Creating SSL and RSA Certificates and Keys using MySQL**
 
 ```bash
-mysql_ssl_rsa_setup --datadir=$(PWD)/mysql/ssl
+mysql_ssl_rsa_setup --datadir=$(pwd)/mysql/ssl
 # Verify a certificate chain
-openssl verify -CAfile $(PWD)/mysql/ssl/ca.pem $(PWD)/mysql/ssl/server-cert.pem $(PWD)/mysql/ssl/client-cert.pem
+openssl verify -CAfile $(pwd)/mysql/ssl/ca.pem $(pwd)/mysql/ssl/server-cert.pem $(pwd)/mysql/ssl/client-cert.pem
 ```
 
 [**Creating SSL Certificates and Keys Using openssl**](https://dev.mysql.com/doc/refman/5.7/en/creating-ssl-files-using-openssl.html)
