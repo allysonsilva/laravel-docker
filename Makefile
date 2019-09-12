@@ -3,10 +3,10 @@
 # include .env
 
 # Optional args
-domain_app ?= app.com
+domain_app ?= appxyz.dev
 app_path_prefix ?= /var/www
 docker_folder_path ?= ./docker
-remote_src ?= /var/www/app.com/
+remote_src ?= /var/www/appxyz.dev/
 nginx_image_name ?= webserver:3.0
 php_base_image_name ?= app:base
 app_image_name ?= app:3.0

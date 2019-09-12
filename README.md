@@ -353,7 +353,7 @@ $ make build-full-php php_base_image_name=app:base
 - The environment variables `${APP_PATH_PREFIX}` and `${DOMAIN_APP}` only serve at the time of creation/build of the image. After the image is created, then these variables have no significance in ENTRYPOINT. It aims to define at the time of image build the value of the `$REMOTE_SRC` variable that this same value will be used in the `WORKDIR $REMOTE_SRC` statement
 
 - `$REMOTE_SRC`
-    - Matches the value `${APP_PATH_PREFIX:-/var/www}/${DOMAIN_APP:-app.com}/`
+    - Matches the value `${APP_PATH_PREFIX:-/var/www}/${DOMAIN_APP:-appxyz.dev}/`
     - Used in instruction `WORKDIR $REMOTE_SRC` on `Dockerfile`
 
 - `WORKDIR` corresponds to the variable `$REMOTE_SRC` that at the time of image build has its value `${APP_PATH_PREFIX}/${DOMAIN_APP}/`, where the value of `${DOMAIN_APP}` is equal to the value of the `domain_app` argument in the command `make build-app ...`

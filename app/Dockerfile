@@ -75,7 +75,7 @@ LABEL maintainer="Allyson Silva <support@allyson.tech>" \
 # If an ARG instruction has a default value and if there is no value passed at build-time, the builder uses the default
 ARG DOMAIN_APP
 # Unlike an ARG instruction, ENV values are always persisted in the built image
-ENV DOMAIN_APP ${DOMAIN_APP:-app.com}
+ENV DOMAIN_APP ${DOMAIN_APP:-appxyz.dev}
 
 # Application prefix path
 ARG APP_PATH_PREFIX
