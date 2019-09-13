@@ -42,6 +42,12 @@ find /etc/nginx/servers \
 
 sed -i "s/@HSTS_HEADER@/$HSTS_HEADER/g" /etc/nginx/snippets/server/security_http_headers.conf
 
+if [ ! -z "$PROJECT_ENVIRONMENT" ]; then
+    if [ "$PROJECT_ENVIRONMENT" != "production" ]; then
+        sed -i "/include snippets\/server\/security_http_headers.conf/d" /etc/nginx/nginx.conf /etc/nginx/servers/app.conf
+    fi
+fi
+
 if [[ "${ONLY_APP:-false}" == true ]]; then
     # Will remove all regular files (recursively, including hidden ones) except app.conf.
     find /etc/nginx/servers/* ! -name 'app.conf' -type f -exec rm -f {} +

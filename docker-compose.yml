@@ -184,6 +184,7 @@ services:
             ONLY_APP: ${ONLY_APP}
             DOMAIN_APP: ${DOMAIN_APP}
             APP_PATH_PREFIX: ${APP_PATH_PREFIX}
+            PROJECT_ENVIRONMENT: ${PROJECT_ENVIRONMENT}
         ports:
             - "${PORT_HTTP}:80"
             - "${PORT_HTTPS}:443"
