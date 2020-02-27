@@ -195,7 +195,7 @@ RUN if [ $INSTALL_PHP_MONGO = true ]; then \
 ########
 
 ARG INSTALL_PHP_IGBINARY=true
-ENV PHP_IGBINARY_VERSION 3.0.1
+ENV PHP_IGBINARY_VERSION 3.1.2
 RUN if [ $INSTALL_PHP_IGBINARY = true ]; then \
             pecl install igbinary-${PHP_IGBINARY_VERSION} \
             && docker-php-ext-enable igbinary \
@@ -233,7 +233,7 @@ RUN if [ $INSTALL_PHP_MESSAGEPACK = true ]; then \
 ########
 
 ARG INSTALL_PHP_REDIS=true
-ENV PHP_REDIS_VERSION 5.0.2
+ENV PHP_REDIS_VERSION 5.1.1
 RUN if [ $INSTALL_PHP_REDIS = true ]; then \
             # /configure --with-php-config=/usr/local/bin/php-config \
             #            --enable-redis-igbinary=yes \
@@ -262,7 +262,7 @@ RUN if [ $INSTALL_PHP_DS = true ]; then \
 ########
 
 ARG INSTALL_PHP_SQLSRV=false
-ENV PHP_SQLSRV_VERSION 5.6.1
+ENV PHP_SQLSRV_VERSION 5.8.0
 
 RUN set -eux; \
         \
@@ -292,7 +292,7 @@ RUN set -eux; \
 #####
 
 ARG INSTALL_PHP_XDEBUG=true
-ENV PHP_XDEBUG_VERSION 2.7.2
+ENV PHP_XDEBUG_VERSION 2.9.2
 RUN if [ $INSTALL_PHP_XDEBUG = true ]; then \
             yes | pecl install xdebug-$PHP_XDEBUG_VERSION && \
             docker-php-ext-enable xdebug \
