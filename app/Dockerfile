@@ -5,7 +5,7 @@ ARG PHP_BASE_IMAGE=app:base
 ## PHP Dependencies
 #####
 
-FROM composer:1.8 as vendor
+FROM composer:1.9 as vendor
 
 WORKDIR /app
 
@@ -48,7 +48,7 @@ RUN set -ex \
 ## FRONTEND
 #####
 
-FROM node:11-alpine as frontend
+FROM node:12-alpine as frontend
 
 WORKDIR /app
 

@@ -1,7 +1,7 @@
 ARG TAG_APP_IMAGE
 FROM ${TAG_APP_IMAGE} as APP_IMAGE
 
-FROM nginx:1.15
+FROM nginx:1.17
 
 LABEL   maintainer="Allyson Silva <support@allyson.tech>" \
         description="Image for handling requests, server requests" \

@@ -1,4 +1,4 @@
-FROM php:7.3-fpm
+FROM php:7.4-fpm
 
 # Add label for documentation
 LABEL   maintainer="Allyson Silva <support@allyson.tech>" \
