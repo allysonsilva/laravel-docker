@@ -124,8 +124,6 @@
 │       ├── ca.pem
 │       ├── client-cert.pem
 │       ├── client-key.pem
-│       ├── private_key.pem
-│       ├── public_key.pem
 │       ├── server-cert.pem
 │       └── server-key.pem
 ├── mongodb
@@ -544,33 +542,33 @@ _Use the following information when completing the certificates `CN`:_
 
 ```
 ca.pem CN/=MySQL_CA_Certificate
-server-cert.pem CN/=database
+server-cert.pem CN/=MySQL_Server_Certificate
 client-cert.pem CN/=MySQL_Client_Certificate
 ```
 
 ```bash
 # Create CA certificate
-openssl genrsa 2048 > ca-key.pem
-openssl req -new -x509 -nodes -days 3600 \
+openssl genrsa -out ca-key.pem -aes256 8192
+openssl req -new -x509 -nodes -days 1024 \
         -key ca-key.pem -out ca.pem \
-        -subj "/C=BR/ST=State/L=Locality/O=Organization Name/OU=root/CN=MySQL_CA_Certificate"
+        -subj "/C=BR/ST=State/L=Locality/O=Organization Name/OU=authority/CN=MySQL_CA_Certificate"
 
 # Create server certificate, remove passphrase, and sign it
 # server-cert.pem = public key, server-key.pem = private key
-openssl req -newkey rsa:2048 -days 1095 \
+openssl req -newkey rsa:4096 -days 365 \
         -nodes -keyout server-key.pem -out server-req.pem \
-        -subj "/C=BR/ST=State/L=Locality/O=Organization Name/OU=server/CN=database"
+        -subj "/C=BR/ST=State/L=Locality/O=Organization Name/OU=server/CN=MySQL_Server_Certificate"
 openssl rsa -in server-key.pem -out server-key.pem
-openssl x509 -req -in server-req.pem -days 1095 \
+openssl x509 -req -in server-req.pem -days 365 \
         -CA ca.pem -CAkey ca-key.pem -set_serial 01 -out server-cert.pem
 
 # Create client certificate, remove passphrase, and sign it
 # client-cert.pem = public key, client-key.pem = private key
-openssl req -newkey rsa:2048 -days 1095 \
+openssl req -newkey rsa:4096 -days 365 \
         -nodes -keyout client-key.pem -out client-req.pem \
         -subj "/C=BR/ST=State/L=Locality/O=Organization Name/OU=client/CN=MySQL_Client_Certificate"
 openssl rsa -in client-key.pem -out client-key.pem
-openssl x509 -req -in client-req.pem -days 1095 \
+openssl x509 -req -in client-req.pem -days 365 \
         -CA ca.pem -CAkey ca-key.pem -set_serial 01 -out client-cert.pem
 ```
 
