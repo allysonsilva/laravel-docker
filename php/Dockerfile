@@ -182,7 +182,7 @@ RUN set -ex \
 ########
 
 ARG INSTALL_PHP_MONGO=false
-ENV PHP_MONGO_VERSION 1.6.0
+ENV PHP_MONGO_VERSION 1.7.3
 RUN if [ $INSTALL_PHP_MONGO = true ]; then \
             pecl install mongodb-${PHP_MONGO_VERSION} \
             && docker-php-ext-enable mongodb \

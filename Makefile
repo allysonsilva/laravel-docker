@@ -123,7 +123,7 @@ pull:
 	docker pull node:11-alpine
 	docker pull nginx:1.15
 	docker pull mysql:5.7
-	docker pull mongo:4.1
+	docker pull mongo:4.2
 	docker pull php:7.3-fpm
 	docker pull redis:5-alpine
 	# docker pull traefik:1.7-alpine

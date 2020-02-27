@@ -33,7 +33,7 @@ secrets:
     mysql_server_cert:
         file: ./mysql/ssl/server-cert.pem
     mongodb_ca:
-        file: ./mongodb/ssl/rootCA.pem
+        file: ./mongodb/ssl/ca.pem
     mongodb_server:
         file: ./mongodb/ssl/server.pem
 
@@ -133,14 +133,14 @@ services:
             retries: 3
 
     # # mongo --ssl \
-    # #       --sslCAFile ./mongodb/ssl/rootCA.pem --sslPEMKeyFile ./mongodb/ssl/client.pem \
+    # #       --sslCAFile ./mongodb/ssl/ca.pem --sslPEMKeyFile ./mongodb/ssl/client.pem \
     # #       --host 127.0.0.1 --port 29019 -u 'root' -p 'Y601=lN!JbL6yj18' --authenticationDatabase admin
     # # @see https://medium.com/@rajanmaharjan/secure-your-mongodb-connections-ssl-tls-92e2addb3c89
     mongodb:
-        image: mongo:4.1
+        image: mongo:4.2
         hostname: mongodb
         container_name: mongodb
-        command: ["mongod", "--config", "/etc/mongo/mongod.conf"]
+        command: ["mongod", "--config", "/etc/mongo/mongod.conf", "--noscripting", "--bind_ip_all"]
         secrets:
             - source: mongodb_ca
               target: /etc/ssl/ca.pem

@@ -196,7 +196,7 @@ COPY --chown=app:app ${DOCKER_FOLDER_PATH}/mysql/ssl/client-cert.pem ${REMOTE_SR
 COPY --chown=app:app ${DOCKER_FOLDER_PATH}/mysql/ssl/ca.pem ${REMOTE_SRC}/database/docker/mysql/ssl/ca.pem
 
 ## MONGODB
-COPY --chown=app:app ${DOCKER_FOLDER_PATH}/mongodb/ssl/rootCA.pem ${REMOTE_SRC}/database/docker/mongodb/ssl/rootCA.pem
+COPY --chown=app:app ${DOCKER_FOLDER_PATH}/mongodb/ssl/ca.pem ${REMOTE_SRC}/database/docker/mongodb/ssl/ca.pem
 COPY --chown=app:app ${DOCKER_FOLDER_PATH}/mongodb/ssl/client.pem ${REMOTE_SRC}/database/docker/mongodb/ssl/client.pem
 
 # Remove folder docker

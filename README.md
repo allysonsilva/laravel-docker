@@ -132,13 +132,12 @@
 │   ├── mongo-init.js
 │   ├── mongod.conf
 │   └── ssl
+│       ├── ca.key
+│       ├── ca.pem
 │       ├── client.crt
 │       ├── client.csr
 │       ├── client.key
 │       ├── client.pem
-│       ├── rootCA.key
-│       ├── rootCA.pem
-│       ├── rootCA.srl
 │       ├── server.crt
 │       ├── server.csr
 │       ├── server.key
@@ -655,22 +654,23 @@ redis-cli -h 127.0.0.1 -p 63781 -a 'HQD3{9S-u(qnxK@'
 
 ```bash
 # Creating own SSL CA to dump our self-signed certificate
-openssl genrsa -out rootCA.key 4096
-openssl req -nodes -x509 -new -key rootCA.key -days 1825 -out rootCA.pem -subj "/C=BR/ST=State/L=Locality/O=Organization Name/OU=root/CN=MongoDB_CA_Certificate"
+openssl genrsa -out ca.key -aes256 8192
+openssl req -new -x509 -nodes -extensions v3_ca -key ca.key -days 1024 -out ca.pem -subj "/C=BR/ST=State/L=Locality/O=Organization Name/OU=authority/CN=MongoDB_CA_Certificate"
 
+##############################
 # Generate SERVER certificates
-openssl genrsa -out server.key 4096
-openssl req -new -key server.key -out server.csr -subj "/C=BR/ST=State/L=Locality/O=Organization Name/OU=server/CN=127.0.0.1"
-openssl x509 -req -in server.csr -CA rootCA.pem -CAkey rootCA.key -CAcreateserial -out server.crt -days 500 -sha256
+##############################
+
+# Generate the Certificate Requests and the Private Keys
+openssl req -newkey rsa:4096 -sha256 -nodes -keyout server.key -out server.csr -subj "/C=BR/ST=State/L=Locality/O=Organization Name/OU=server/CN=127.0.0.1"
+openssl req -newkey rsa:4096 -sha256 -nodes -keyout client.key -out client.csr -subj "/C=BR/ST=State/L=Locality/O=Organization Name/OU=client/CN=MongoDB_Client_Certificate"
+
+# Sign your Certificate Requests
+openssl x509 -req -CA ca.pem -CAkey ca.key -set_serial 00 -days 365 -in server.csr -out server.crt
+openssl x509 -req -CA ca.pem -CAkey ca.key -set_serial 00 -days 365 -in client.csr -out client.crt
+
+# Concat each Node Certificate with its key
 cat server.key server.crt > server.pem
-
-# Generate client cert to be signed
-openssl req -nodes -newkey rsa:4096 -keyout client.key -out client.csr -subj "/C=BR/ST=State/L=Locality/O=Organization Name/OU=client/CN=MongoDB_Client_Certificate"
-
-# Sign the client cert
-openssl x509 -req -in client.csr -CA rootCA.pem -CAkey rootCA.key -CAserial rootCA.srl -out client.crt -days 500 -sha256
-
-# Create client PEM file
 cat client.key client.crt > client.pem
 ```
 
@@ -682,13 +682,13 @@ docker run \
         -p 29019:27017 \
             -v $(pwd)/./mongodb/mongod.conf:/etc/mongo/mongod.conf:ro \
             -v $(pwd)/./mongodb/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro \
-            -v $(pwd)/./mongodb/ssl/rootCA.pem:/etc/ssl/ca.pem:ro \
+            -v $(pwd)/./mongodb/ssl/ca.pem:/etc/ssl/ca.pem:ro \
             -v $(pwd)/./mongodb/ssl/server.pem:/etc/ssl/server.pem:ro \
     --env "MONGO_INITDB_ROOT_USERNAME=root" \
     --env "MONGO_INITDB_ROOT_PASSWORD=Y601=lN!JbL6yj18" \
         --name=mongodb \
         --hostname=mongodb \
-        -t mongo:4.1 mongod --config /etc/mongo/mongod.conf
+        -t mongo:4.2 mongod --config /etc/mongo/mongod.conf
 ```
 
 [Secure your MongoDB connections - SSL/TLS](https://medium.com/@rajanmaharjan/secure-your-mongodb-connections-ssl-tls-92e2addb3c89)
@@ -697,7 +697,7 @@ docker run \
 
 ```bash
 mongo --ssl \
-      --sslCAFile ./mongodb/ssl/rootCA.pem --sslPEMKeyFile ./mongodb/ssl/client.pem \
+      --sslCAFile ./mongodb/ssl/ca.pem --sslPEMKeyFile ./mongodb/ssl/client.pem \
       --host 127.0.0.1 --port 29019 -u 'root' -p 'Y601=lN!JbL6yj18' --authenticationDatabase admin
 ```
 
