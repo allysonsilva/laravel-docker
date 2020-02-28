@@ -47,7 +47,7 @@ ENV PHP_AMQP_VERSION 1.9.4
 # Event-driven asynchronous and concurrent networking engine with high performance for PHP.
 # https://github.com/swoole/swoole-src
 ARG INSTALL_PHP_SWOOLE=false
-ENV PHP_SWOOLE_VERSION 4.4.5
+ENV PHP_SWOOLE_VERSION 4.4.16
 
 # Install the PHP EXTENSIONS
 RUN set -eux; \
@@ -221,7 +221,7 @@ RUN if [ $INSTALL_PHP_LZF = true ]; then \
 ########
 
 ARG INSTALL_PHP_MESSAGEPACK=true
-ENV PHP_MESSAGEPACK_VERSION 2.0.3
+ENV PHP_MESSAGEPACK_VERSION 2.1.0
 RUN if [ $INSTALL_PHP_MESSAGEPACK = true ]; then \
             pecl install msgpack-${PHP_MESSAGEPACK_VERSION} \
             && docker-php-ext-enable msgpack \
