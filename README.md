@@ -188,11 +188,11 @@
 
 ## What's Inside/Softwares Included:
 
-- _`PHP`_ 7.3.x
+- _`PHP`_ 7.4.x
 - [PHP-FPM](https://php-fpm.org/)
-- [_`Nginx`_ 1.15.x](https://nginx.org/)
+- [_`Nginx`_ 1.17.x](https://nginx.org/)
 - [_`MySQL`_ 5.7](https://www.mysql.com/)
-- [_`MongoDB`_ 4.1](https://www.mongodb.org/)
+- [_`MongoDB`_ 4.2](https://www.mongodb.org/)
 - [ _`Redis`_ 5.x](https://redis.io/)
 - [_`Elasticsearch`_ | _`Logstash`_ | _`Kibana`_ 6.6.x](https://www.elastic.co/)
 - [_`Traefik`_ 1.7.x](https://traefik.io/)
