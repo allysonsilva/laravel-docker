@@ -83,13 +83,11 @@ RUN set -eux; \
         ; \
         \
         docker-php-ext-configure gd \
-                --with-gd \
-                --with-jpeg-dir=/usr/include/ \
-                --with-png-dir=/usr/include/ \
-                --with-webp-dir=/usr/include/ \
+                --enable-gd \
+                --with-jpeg \
+                --with-webp \
         ; \
         \
-        docker-php-ext-configure zip --with-libzip; \
         docker-php-ext-configure mysqli --with-mysqli=mysqlnd; \
         docker-php-ext-configure pdo_mysql --with-pdo-mysql=mysqlnd; \
         docker-php-ext-install -j $(nproc) \
