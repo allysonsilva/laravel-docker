@@ -1,0 +1,30 @@
+---
+version: '3.8'
+
+# volumes:
+#     app_project:
+#         name: ${CONTAINER_NAME_PREFIX}_app_project
+#         driver: local
+#         driver_opts:
+#             type: none
+#             device: ${ROOT_PATH}/${APP_LOCAL_FOLDER}
+#             o: bind
+
+services:
+
+    webserver:
+        # container_name: ${CONTAINER_NAME_PREFIX}_webserver_app
+        environment:
+            # APP_PHPFPM_DOCKER_SERVICE: ${CONTAINER_NAME_PREFIX}_app
+            APP_PATH_SRC: ${APP_PATH_SRC}
+            IS_APP_PATH_SRC_LARAVEL_APP: 'true'
+            # # Same as ${PHPFPM_REQUEST_TERMINATE_TIMEOUT}
+            NGINX_FASTCGI_READ_TIMEOUT: 60s
+            # ONLY_HTTP: 'true'
+            # CONTENT_SECURITY_POLICY: "default-src * 'unsafe-inline' 'unsafe-eval'"
+        # Graceful shutdown
+        stop_grace_period: 60s
+        # volumes:
+        #     - type: volume
+        #       source: app_project
+        #       target: ${APP_PATH_SRC}

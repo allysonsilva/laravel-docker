@@ -1,0 +1,56 @@
+version: '3.8'
+
+volumes:
+    queue_logs:
+
+networks:
+    external_network:
+        external: true
+        name: ${DEFAULT_DOCKER_NETWORK}
+
+services:
+
+    queue:
+        image: ${QUEUE_IMAGE}
+        hostname: ${CONTAINER_NAME_PREFIX}_queue
+        container_name: ${CONTAINER_NAME_PREFIX}_queue
+        # # docker-compose --file ./services/queue/docker-compose.yml --ansi=auto --env-file .env build queue
+        build:
+            context: ${ROOT_PATH}
+            dockerfile: ${LOCAL_DOCKER_FOLDER}/php/Dockerfile
+            args:
+                APP_ENV: production
+                USER_UID: ${USER_UID}
+                USER_GID: ${USER_GID}
+                REMOTE_SRC: ${QUEUE_PATH_SRC}
+                LOCAL_APP_FOLDER: ${QUEUE_LOCAL_FOLDER}
+                LOCAL_DOCKER_FOLDER: ${LOCAL_DOCKER_FOLDER}
+        working_dir: ${QUEUE_PATH_SRC}
+        env_file:
+            - .env.container
+        environment:
+            # # Container ENVs
+            REMOTE_SRC: ${QUEUE_PATH_SRC}
+        volumes:
+            # - ${ROOT_PATH}/${QUEUE_LOCAL_FOLDER}:${QUEUE_PATH_SRC}:delegated
+            - ${DOCKER_PATH}/php/queue/supervisord.conf:/etc/supervisor/supervisord.conf:ro
+            - ${DOCKER_PATH}/php/docker-entrypoint.sh:/entrypoint.sh:ro
+            - type: volume
+              source: queue_logs
+              target: /usr/local/var/log
+        ports:
+            - 8000
+            - 8080
+        # Graceful shutdown
+        stop_signal: SIGQUIT
+        stop_grace_period: 120s
+        networks:
+            external_network:
+                # ipv4_address: 172.20.1.3
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "1m"
+                max-file: "5"
+                mode: "non-blocking"
+                tag: "logging-queue"

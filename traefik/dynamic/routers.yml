@@ -1,0 +1,47 @@
+---
+## DYNAMIC CONFIGURATION
+
+http:
+
+    routers:
+
+        # router0:
+        #     rule: "Host(`mydomain`)"
+        #     service: service0
+        #     priority: 1000
+        #     entryPoints:
+        #         - websecure
+        #     middlewares:
+        #         - security
+
+        # Global redirect to https
+        # > http-catchall
+        redirect-http-to-https:
+            rule: "HostRegexp(`{host:.+}`)"
+            service: noop@internal
+            priority: 1000
+            entryPoints:
+                - web
+                # - management
+            middlewares:
+                - redirect-to-https
+
+        webserver:
+            # # (Host(`www.yourdomain.tld`) || Host(`yourdomain.tld`)) && PathPrefix(`/`)
+            # # Host(`blog.yourdomain.tld`) || Host(`yourdomain.tld`) || Host(`www.yourdomain.tld`)
+            # # HostRegexp(`${DOMAIN}`, `{subdomain:[a-z0-9]+}.${DOMAIN}`)
+            # # Catch all domains (Regex matches all strings)
+            rule: "HostRegexp(`{host:.+}`)"
+            service: webserver-canary@file
+            priority: 10
+            tls:
+                options: default@file
+                domains:
+                    - main: "{{ env "DOMAIN" }}"
+                      sans:
+                        - "*.{{ env "DOMAIN" }}"
+            entryPoints:
+                - websecure
+            middlewares:
+                - security@file
+                - with-compress@file

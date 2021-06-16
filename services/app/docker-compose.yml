@@ -1,0 +1,83 @@
+---
+version: '3.8'
+
+volumes:
+    app_logs:
+
+networks:
+    external_network:
+        external: true
+        name: ${DEFAULT_DOCKER_NETWORK}
+
+services:
+
+    app:
+        # tty: true
+        # stdin_open: true
+        # user: "1000:1000"
+        # user: ${CURRENT_UID:?"Please run as follows 'CURRENT_UID=$(id -u):$(id -g) docker-compose up'"}
+        image: ${APP_IMAGE}
+        # hostname: ${CONTAINER_NAME_PREFIX}_app
+        # container_name: ${CONTAINER_NAME_PREFIX}_app
+        # # docker-compose --file ./services/app/docker-compose.yml --ansi=auto --env-file .env build app
+        build:
+            context: ${ROOT_PATH}
+            dockerfile: ${LOCAL_DOCKER_FOLDER}/php/Dockerfile
+            args:
+                APP_ENV: production
+                USER_UID: ${USER_UID}
+                USER_GID: ${USER_GID}
+                REMOTE_SRC: ${APP_PATH_SRC}
+                LOCAL_APP_FOLDER: ${APP_LOCAL_FOLDER}
+                LOCAL_DOCKER_FOLDER: ${LOCAL_DOCKER_FOLDER}
+        working_dir: ${APP_PATH_SRC}
+        ports:
+            - 8000
+            - 9000
+        volumes:
+            - ${DOCKER_PHP_PATH}/docker-entrypoint.sh:/entrypoint.sh:ro
+            # - ${ROOT_PATH}/${APP_LOCAL_FOLDER}:${APP_PATH_SRC}:delegated
+            # - ${DOCKER_PHP_PATH}/configs/php-local.ini:/usr/local/etc/php/php.ini
+            # - ${DOCKER_PHP_PATH}/configs/conf.d/opcache.ini:/usr/local/etc/php/conf.d/docker-php-ext-opcache.ini
+            # - ${DOCKER_PHP_PATH}/configs/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+            - type: volume
+              source: app_logs
+              target: /usr/local/var/log
+        env_file:
+            - .env.container
+        environment:
+            # # Container ENVs
+            REMOTE_SRC: ${APP_PATH_SRC}
+            # # Use when: user: "1000:1000"
+            # USER_NAME: www-data
+        restart: on-failure:3
+        # Graceful shutdown
+        stop_signal: SIGQUIT
+        stop_grace_period: 60s
+        networks:
+            external_network:
+                # ipv4_address: 172.20.3.3
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "1m"
+                max-file: "5"
+                mode: "non-blocking"
+                tag: "logging-app"
+        healthcheck:
+            test: ["CMD-SHELL", "SCRIPT_NAME=/fpm-ping SCRIPT_FILENAME=/fpm-ping REQUEST_METHOD=GET cgi-fcgi -bind -connect 127.0.0.1:9001 || exit 1"]
+            start_period: 0s
+            interval: 10s
+            timeout: 5s
+            retries: 3
+        # # docker-compose --compatibility up
+        deploy:
+            resources:
+                limits:
+                    cpus: '${APP_LIMITS_CPU:? Missing $APP_LIMITS_CPU env var}'
+                    memory: ${APP_LIMITS_MEMORY}
+                reservations:
+                    memory: ${APP_RESERVATIONS_MEMORY}
+        cap_drop:
+            - NET_ADMIN
+            - SYS_ADMIN

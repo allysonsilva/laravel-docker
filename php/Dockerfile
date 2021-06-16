@@ -1,398 +1,527 @@
-FROM php:7.4-fpm
+ARG LOCAL_APP_FOLDER=./src
+ARG LOCAL_DOCKER_FOLDER=./docker
+ARG PHP_BASE_IMAGE_VERSION=8.0-fpm-alpine
 
-# Add label for documentation
-LABEL   maintainer="Allyson Silva <support@allyson.tech>" \
-        description="Base image for PHP applications" \
-        version="base"
+#####
+## COMPOSER
+#####
 
-####
-## DEFAULT CONFIGURATIONS
-####
+FROM composer:2.0 as vendor
 
-# If an ARG instruction has a default value and if there is no value passed at build-time, the builder uses the default
-ARG DEFAULT_USER=app
-# Unlike an ARG instruction, ENV values are always persisted in the built image
-ENV DEFAULT_USER ${DEFAULT_USER}
+WORKDIR /app
 
-ARG DEFAULT_USER_UID=1000
-ENV DEFAULT_USER_UID ${DEFAULT_USER_UID}
+# https://getcomposer.org/doc/03-cli.md#composer-home
+ENV COMPOSER_HOME /composer
 
-ARG DEFAULT_USER_GID=1000
-ENV DEFAULT_USER_GID ${DEFAULT_USER_GID}
+ARG LOCAL_APP_FOLDER
+
+# Copy only the files needed to download dependencies to avoid redownloading them when our code changes
+COPY $LOCAL_APP_FOLDER/composer.json composer.json
+COPY $LOCAL_APP_FOLDER/composer.lock composer.lock
+
+RUN set -xe \
+    &&  composer install \
+            --optimize-autoloader \
+            --ignore-platform-reqs \
+            --prefer-dist \
+            --ansi \
+            --no-dev \
+            --profile \
+            --no-cache \
+            --no-scripts \
+            --no-interaction
+
+#####
+## FRONTEND
+#####
+
+FROM node:16-alpine as frontend
+
+WORKDIR /app
+
+ARG LOCAL_APP_FOLDER
+
+# COPY package-lock.json package-lock.json
+COPY $LOCAL_APP_FOLDER/package.json $LOCAL_APP_FOLDER/webpack.mix.js ./
+COPY $LOCAL_APP_FOLDER/resources/js resources/js/
+COPY $LOCAL_APP_FOLDER/resources/css resources/css/
+# COPY $LOCAL_APP_FOLDER/resources/images/ public/images/
+COPY $LOCAL_APP_FOLDER/public/ public/
+
+RUN set -xe \
+    && npm install && npm run production
+
+#####
+## APP CONTAINER
+#####
+
+FROM php:$PHP_BASE_IMAGE_VERSION
+
+ARG LOCAL_APP_FOLDER
+ARG LOCAL_DOCKER_FOLDER
+
+# = /usr/local/etc/php
+ENV PHP_INI_DIR ${PHP_INI_DIR:-/usr/local/etc/php}
+# = /usr/local/etc/php/conf.d
+ENV PHP_INI_SCAN_DIR ${PHP_INI_DIR}/conf.d
+# = /usr/local/etc/php-fpm.d
+ENV PHP_FPM_POOL_DIR ${PHP_INI_DIR}-fpm.d
+# Default PATH LOG
+ENV LOG_PATH=/usr/local/var/log
+# Path logs PHP/PHP-FPM
+ENV PHP_LOG_PATH=$LOG_PATH/php
 
 # Default directory for application deployment
 # Location of the folder in the container, path of the folder inside the container
-ARG REMOTE_SRC=/var/www/app/
+ARG REMOTE_SRC=/var/www/app
 ENV REMOTE_SRC $REMOTE_SRC
 
-# = /usr/local/etc/php || (./configure --with-config-file-path="$PHP_INI_DIR")
-ENV PHP_INI_DIR ${PHP_INI_DIR:-/usr/local/etc/php}
-# = /usr/local/etc/php/conf.d || (./configure --with-config-file-scan-dir="$PHP_INI_DIR/conf.d")
-ENV PHP_INI_SCAN_DIR ${PHP_INI_DIR}/conf.d
-# = /usr/local/etc/php-fpm.d || Pool Definitions (docker.conf | www.conf | zz-docker.conf)
-ENV PHP_FPM_POOL_DIR ${PHP_INI_DIR}-fpm.d
-# Path logs PHP/PHP-FPM
-ENV PHP_LOG_PREFIX=/usr/local/var/log/php
+# Image user
+ARG USER_NAME=app
+ENV USER_NAME $USER_NAME
 
-####
-## PHP
-####
+ARG USER_UID=1000
+ARG USER_GID=1000
 
-## AMQP EXT
-# https://github.com/pdezwart/php-amqp
-ARG INSTALL_PHP_AMQP=false
-ENV PHP_AMQP_VERSION 1.9.4
+# Path docker PHP/APP folder
+# Path Config/Dockerfile PHP/APP
+ARG LOCAL_DOCKER_PHP_PATH=$LOCAL_DOCKER_FOLDER/php
+ENV LOCAL_DOCKER_PHP_PATH $LOCAL_DOCKER_PHP_PATH
 
-## SWOOLE
-# Event-driven asynchronous and concurrent networking engine with high performance for PHP.
-# https://github.com/swoole/swoole-src
-ARG INSTALL_PHP_SWOOLE=false
-ENV PHP_SWOOLE_VERSION 4.4.16
+ARG LOCAL_APP_FOLDER
+ENV LOCAL_APP_FOLDER $LOCAL_APP_FOLDER
 
-# Install the PHP EXTENSIONS
-RUN set -eux; \
-        \
-        echo "---> Preparing and Installing PHP"; \
-        \
-        # Print the list of manually installed packages
-        savedAptMark="$(apt-mark showmanual)"; \
-        \
-        apt-get update; \
-        # Dependencies required for PHP EXTENSIONS
-        apt-get install --no-install-recommends -y \
-                # for GD extension
-                libjpeg-dev \
-                libpng-dev \
-                libwebp-dev \
-                # for intl extension
-                icu-devtools \
-                libicu-dev \
-                # for soap extension
-                libxml2-dev \
-                # for amqp extension
-                librabbitmq-dev \
-                # for gmp extension
-                libgmp-dev \
-                # for swoole extension
-                libssl-dev \
-                libnghttp2-dev \
-                libhiredis-dev \
-                # for zip extension
-                libzip-dev \
-                zlib1g-dev \
-        ; \
-        \
-        docker-php-ext-configure gd \
-                --enable-gd \
-                --with-jpeg \
-                --with-webp \
-        ; \
-        \
-        docker-php-ext-configure mysqli --with-mysqli=mysqlnd; \
-        docker-php-ext-configure pdo_mysql --with-pdo-mysql=mysqlnd; \
-        docker-php-ext-install -j $(nproc) \
-                gd \
-                bcmath \
-                gmp \
-                intl \
-                pcntl \
-                mysqli \
-                pdo_mysql \
-                soap \
-                sockets \
-                opcache \
-                zip \
-        ; \
-        \
-        # Communicate with any AMQP compliant server
-        if [ $INSTALL_PHP_AMQP = true ]; then \
-                pecl install amqp-${PHP_AMQP_VERSION}; \
-                docker-php-ext-enable amqp; \
-        fi; \
-        \
-        if [ $INSTALL_PHP_SWOOLE = true ]; then \
-                # enable sockets supports? [no] : yes
-                # enable openssl support? [no] : yes
-                # enable http2 support? [no] : yes
-                # enable mysqlnd support? [no] : yes
-                # enable postgresql coroutine client support? [no] : no
-                printf "yes \n yes \n yes \n yes \n no \n" | pecl install swoole-${PHP_SWOOLE_VERSION}; \
-                docker-php-ext-enable swoole; \
-        fi; \
-        \
-        echo "---> Cleaning up"; \
-        \
-# reset apt-mark's "manual" list so that "purge --auto-remove" will remove all build dependencies
-        apt-mark auto '.*' > /dev/null; \
-        apt-mark manual $savedAptMark; \
-        ldd "$(php -r 'echo ini_get("extension_dir");')"/*.so \
-                | awk '/=>/ { print $3 }' \
+# app || queue || scheduler
+ARG CONTAINER_ROLE=app
+ENV CONTAINER_ROLE $CONTAINER_ROLE
+
+# worker or horizon {Variables applied when $CONTAINER_ROLE=queue}
+ARG LARAVEL_QUEUE_MANAGER
+ENV LARAVEL_QUEUE_MANAGER ${LARAVEL_QUEUE_MANAGER:-worker}
+
+ARG APP_ENV=production
+ENV APP_ENV ${APP_ENV:-production}
+
+RUN set -xe; \
+    \
+    echo "---> Installing PHP Extensions"; \
+    \
+    apk update; \
+    \
+    apk add --no-cache --virtual .build-deps \
+        $PHPIZE_DEPS \
+        curl-dev \
+        pcre-dev \
+        libressl-dev \
+        # Mbstring
+        oniguruma-dev \
+        # SQLite3
+        sqlite-dev \
+        # for intl extension
+        icu-dev \
+        # for GD
+        freetype-dev \
+        libpng-dev \
+        libjpeg-turbo-dev \
+        libwebp-dev \
+        # for zip extension
+        zlib-dev \
+        libzip-dev \
+        gnutls-dev \
+        # for xslt
+        libxslt-dev \
+        libgcrypt-dev \
+        # for gpm extension
+        gmp-dev \
+        # for soap
+        libxml2-dev \
+    ; \
+    apk add --no-cache --virtual .persistent-deps \
+        vim \
+        # for intl
+        icu-libs \
+        # for mongodb
+        libssl1.1 \
+        # for zip
+        libzip \
+        # for xslt
+        libxslt \
+        # for gpm
+        gmp \
+    ; \
+    docker-php-ext-configure gd \
+        --enable-gd \
+        --with-jpeg \
+        --with-webp \
+        --with-freetype \
+    ; \
+    docker-php-ext-configure mysqli --with-mysqli=mysqlnd && \
+    docker-php-ext-configure pdo_mysql --with-pdo-mysql=mysqlnd && \
+    docker-php-ext-configure zip --with-zip && \
+    docker-php-ext-install -j $(nproc) \
+        exif \
+        calendar \
+        xsl \
+        intl \
+        gd \
+        bcmath \
+        mbstring \
+        gmp \
+        pcntl \
+        mysqli \
+        pdo_mysql \
+        soap \
+        sockets \
+        opcache \
+        zip \
+    ; \
+    pecl install -o -f \
+        ds-1.3.0 \
+        mongodb-1.9.1 \
+        xdebug-3.0.4 \
+    ; \
+    # Igbinary: Is a drop in replacement for the standard php serializer.
+    # MessagePack: Is an efficient binary serialization format.
+    pecl install -o -f \
+        igbinary-3.2.2 \
+        msgpack-2.1.2 \
+    ; \
+    # redis/configure \
+    #       --with-php-config=/usr/local/bin/php-config \
+    #       --enable-redis-igbinary=yes \
+    #       --enable-redis-lzf=no \
+    #       --enable-redis-zstd=no
+    printf "yes \n no \n no \n" | pecl install redis-5.3.4 \
+    ; \
+    docker-php-ext-enable \
+        ds \
+        igbinary \
+        msgpack \
+        redis \
+        mongodb \
+        xdebug \
+    ; \
+    php --version \
+    ; \
+    runDeps="$( \
+        scanelf --needed --nobanner --format '%n#p' --recursive /usr/local \
+            | tr ',' '\n' \
+            | sort -u \
+            | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
+    )"; \
+    apk add --no-cache $runDeps; \
+    apk del --no-network .build-deps; \
+    rm -rf /tmp/* /var/cache/apk/*
+
+RUN set -xe; \
+    \
+    echo "---> Installing Packages Dependencies"; \
+    \
+    apk update; \
+    \
+    apk add --update --no-cache \
+        fd \
+        exa \
+        git \
+        sudo \
+        curl \
+        wget \
+        fcgi \
+        make \
+        bash \
+        tini \
+        logrotate \
+        bind-tools \
+        supervisor \
+        mysql-client \
+        busybox-suid \
+        openssh-client \
+        bash-completion; \
+    \
+    rm -rf /tmp/* /var/cache/apk/*
+
+# TODO: Remove when https://pecl.php.net/package/amqp have support for php 8
+# @see https://github.com/mlocati/docker-php-extension-installer/blob/master/install-php-extensions#L1322
+RUN set -xe; \
+    \
+    echo "---> Installing PHP AMQP"; \
+    \
+    apk update; \
+    \
+    apk add --no-cache \
+        rabbitmq-c \
+    ; \
+    \
+    apk add --no-cache --virtual .build-deps \
+        $PHPIZE_DEPS \
+        rabbitmq-c-dev \
+    ; \
+    wget -c https://codeload.github.com/php-amqp/php-amqp/tar.gz/df1241852b359cf12c346beaa68de202257efdf1 -O"php-amqp.tar.gz"; \
+    gzip -dc php-amqp*.tar.gz | tar xf -; \
+    \
+    cd php-amqp-* && phpize && ./configure; \
+    \
+    make -j $(nproc) && make install; \
+    docker-php-ext-enable amqp; \
+    \
+    # Cleanup
+    cd .. && rm -Rf php-amqp*; \
+    \
+    runDeps="$( \
+            scanelf --needed --nobanner --format '%n#p' --recursive /usr/local \
+                | tr ',' '\n' \
                 | sort -u \
-                | xargs -r dpkg-query -S \
-                | cut -d: -f1 \
-                | sort -u \
-                | xargs -rt apt-mark manual; \
-        \
-        apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
-        rm -rf /var/lib/apt/lists/*; \
-        rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin; \
-        \
-        php --version; \
-        \
-        # https://github.com/docker-library/php/issues/443
-        pecl update-channels; \
-        rm -rf /tmp/pear ~/.pearrc
+                | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
+        )" \
+    \
+    && apk add --no-cache $runDeps \
+    && apk del --no-network .build-deps \
+    && rm -rf /tmp/* /var/cache/apk/*
 
-####
-## SUPPORT PACKAGES
-####
+# NewRelic
+# Variables for enabling NewRelic
+ENV FRAMEWORK=laravel \
+    NEW_RELIC_ENABLED=false \
+    NEW_RELIC_APPNAME="" \
+    NEW_RELIC_LICENSE_KEY=""
 
-RUN set -ex \
-        && apt-get update \
-        && apt-get install --no-install-recommends -y \
-                sudo \
-                git \
-                apt-transport-https \
-                gnupg \
-                openssh-client \
-                autoconf \
-                pkg-config \
-                libssl-dev \
-                wget \
-                unzip \
-        && apt-get purge -y --auto-remove && rm -rf /var/lib/apt/lists/* \
-        && rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin
+ARG NEWRELIC_VERSION=9.17.1.301
+ENV NEWRELIC_VERSION $NEWRELIC_VERSION
 
-####
-## NEW USER
-####
+ENV NEWRELIC_NAME newrelic-php5-${NEWRELIC_VERSION}-linux-musl
+ENV NEWRELIC_AGENT_URL https://download.newrelic.com/php_agent/archive/${NEWRELIC_VERSION}/${NEWRELIC_NAME}.tar.gz
 
-RUN set -ex \
-        && echo "---> Adding user to IMAGE" \
-        && addgroup --system --gid ${DEFAULT_USER_GID} ${DEFAULT_USER} \
-        && adduser --system --disabled-password -uid ${DEFAULT_USER_UID} -gid ${DEFAULT_USER_GID} --force-badname ${DEFAULT_USER} \
-        && echo "${DEFAULT_USER} ALL = (ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-########
-## MONGODB
-# https://docs.mongodb.com/php-library/current
-# https://github.com/mongodb/mongo-php-library && composer require mongodb/mongodb
-########
-
-ARG INSTALL_PHP_MONGO=false
-ENV PHP_MONGO_VERSION 1.7.3
-RUN if [ $INSTALL_PHP_MONGO = true ]; then \
-            pecl install mongodb-${PHP_MONGO_VERSION} \
-            && docker-php-ext-enable mongodb \
-    ;fi
-
-########
-## IGBINARY
-# Igbinary is a drop in replacement for the standard php serializer.
-# https://github.com/igbinary/igbinary
-########
-
-ARG INSTALL_PHP_IGBINARY=true
-ENV PHP_IGBINARY_VERSION 3.1.2
-RUN if [ $INSTALL_PHP_IGBINARY = true ]; then \
-            pecl install igbinary-${PHP_IGBINARY_VERSION} \
-            && docker-php-ext-enable igbinary \
-    ;fi
-
-########
-## LZF
-# This package handles LZF de/compression.
-# http://php.net/lzf
-########
-
-ARG INSTALL_PHP_LZF=true
-ENV PHP_LZF_VERSION 1.6.7
-RUN if [ $INSTALL_PHP_LZF = true ]; then \
-           pecl install lzf-${PHP_LZF_VERSION} \
-            && docker-php-ext-enable lzf \
-    ;fi
-
-########
-## MESSAGEPACK
-# MessagePack is an efficient binary serialization format
-# https://msgpack.org/
-########
-
-ARG INSTALL_PHP_MESSAGEPACK=true
-ENV PHP_MESSAGEPACK_VERSION 2.1.0
-RUN if [ $INSTALL_PHP_MESSAGEPACK = true ]; then \
-            pecl install msgpack-${PHP_MESSAGEPACK_VERSION} \
-            && docker-php-ext-enable msgpack \
-    ;fi
-
-########
-## REDIS
-# https://github.com/phpredis/phpredis
-########
-
-ARG INSTALL_PHP_REDIS=true
-ENV PHP_REDIS_VERSION 5.1.1
-RUN if [ $INSTALL_PHP_REDIS = true ]; then \
-            # /configure --with-php-config=/usr/local/bin/php-config \
-            #            --enable-redis-igbinary=yes \
-            #            --enable-redis-lzf=yes
-            printf "yes \n yes \n" | pecl install -o -f redis-${PHP_REDIS_VERSION} \
-            && docker-php-ext-enable redis \
-    ;fi
-
-########
-## DATA STRUCTURES (DS)
-# Data Structures (https://medium.com/p/9dda7af674cd)
-# https://github.com/php-ds/extension
-########
-
-ARG INSTALL_PHP_DS=true
-ENV PHP_DS_VERSION 1.2.9
-RUN if [ $INSTALL_PHP_DS = true ]; then \
-            pecl install ds-${PHP_DS_VERSION} && \
-            docker-php-ext-enable ds \
-    ;fi
-
-########
-## SQLSRV + PDO_SQLSRV
-# Microsoft Drivers for PHP for SQL Server (SQLSRV + PDO_SQLSRV)
-# @see https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server#debian-8-and-9
-########
-
-ARG INSTALL_PHP_SQLSRV=false
-ENV PHP_SQLSRV_VERSION 5.8.0
-
-RUN set -eux; \
-        \
-        if [ $INSTALL_PHP_SQLSRV = true ]; then \
-                \
-                # Installing the Microsoft ODBC Driver for SQL Server on Linux (DEBIAN)
-                curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -; \
-                curl https://packages.microsoft.com/config/debian/9/prod.list | tee /etc/apt/sources.list.d/mssql-release.list; \
-                apt-get update; \
-                \
-                ACCEPT_EULA=Y apt-get install msodbcsql17 --no-install-recommends -y; \
-                \
-                # @see https://stackoverflow.com/questions/15447386/sql-h-header-file-missing-though-unixodbc-is-installed
-                apt-get install unixodbc-dev --no-install-recommends -y; \
-                \
-                ## SQLSRV + PDO_SQLSRV
-                pecl install sqlsrv-${PHP_SQLSRV_VERSION} pdo_sqlsrv-${PHP_SQLSRV_VERSION}; \
-                \
-                docker-php-ext-enable sqlsrv pdo_sqlsrv; \
-                \
-                apt-get purge -y --auto-remove && rm -rf /var/lib/apt/lists/*; \
-                rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin; \
-        fi;
+RUN set -xe; \
+    \
+    echo "---> Adding Support for NewRelic"; \
+    \
+    apk update \
+    \
+    && cd /tmp/ \
+    && wget -O /tmp/${NEWRELIC_NAME}.tar.gz ${NEWRELIC_AGENT_URL} \
+    && tar -C /tmp -xzf ${NEWRELIC_NAME}.tar.gz \
+    && export NR_INSTALL_USE_CP_NOT_LN=1 \
+    && export NR_INSTALL_SILENT=1 \
+    && /tmp/newrelic-php5-*/newrelic-install install \
+    && rm -rf /tmp/newrelic /tmp/nrinstall*
 
 #####
-## XDEBUG
+## CONFIGURATIONS
 #####
 
-ARG INSTALL_PHP_XDEBUG=true
-ENV PHP_XDEBUG_VERSION 2.9.2
-RUN if [ $INSTALL_PHP_XDEBUG = true ]; then \
-            yes | pecl install xdebug-$PHP_XDEBUG_VERSION && \
-            docker-php-ext-enable xdebug \
+COPY $LOCAL_DOCKER_PHP_PATH/configs/conf.d/xdebug.ini $PHP_INI_SCAN_DIR/docker-php-ext-xdebug.ini
+COPY $LOCAL_DOCKER_PHP_PATH/configs/conf.d/opcache.ini $PHP_INI_SCAN_DIR/docker-php-ext-opcache.ini
+
+# /usr/local/etc/php/php.ini
+COPY $LOCAL_DOCKER_PHP_PATH/configs/php-$APP_ENV.ini $PHP_INI_DIR/php.ini
+# /usr/local/etc/php-fpm.conf
+COPY $LOCAL_DOCKER_PHP_PATH/configs/fpm/global.conf $PHP_INI_DIR-fpm.conf
+# /usr/local/etc/php-fpm.d/(www.conf|*)
+COPY $LOCAL_DOCKER_PHP_PATH/configs/fpm/pools/ $PHP_FPM_POOL_DIR/
+
+# SUPERVISOR CONF's
+COPY $LOCAL_DOCKER_PHP_PATH/queue/supervisord.conf /etc/supervisor/supervisord.conf
+COPY $LOCAL_DOCKER_PHP_PATH/queue/templates/* /etc/supervisor/conf.d/
+
+RUN set -xe \
+    && echo "---> Forward request and error logs to docker log collector" \
+    && mkdir -p $PHP_LOG_PATH $PHP_LOG_PATH/rotate $LOG_PATH/supervisor \
+    \
+    && touch $PHP_LOG_PATH/php-fpm.access.log \
+    && touch $PHP_LOG_PATH/php-fpm.errors.log \
+    && touch $PHP_LOG_PATH/php-fpm.slow.log \
+    && touch $PHP_LOG_PATH/php.errors.log
+
+RUN set -xe \
+    && /usr/local/sbin/php-fpm --test \
+    && PHP_ERROR="$( php -v 2>&1 1>/dev/null )" \
+    && if [ -n "$PHP_ERROR" ]; then echo "$PHP_ERROR"; false; fi \
+    && php -m; php -v; php --ini \
+    && php -i | grep -E '^opcache\.(enable_cli|jit|jit_buffer_size) '
+
+RUN if [ "$USER_UID" != 1000 ]; then \
+        set -xe \
+        # && echo "---> Adding USER docker(1000) to IMAGE" \
+        # && addgroup -g 1000 docker \
+        # && adduser -D -u 1000 -G docker docker \
+        # && echo "docker ALL = (ALL) NOPASSWD: ALL" >> /etc/sudoers \
+        && echo "---> Adding the www-data(1000) user" \
+        && deluser --remove-home www-data \
+        && delgroup www-data || true \
+        && addgroup --gid 1000 www-data \
+        && adduser --gecos "" --disabled-password --uid 1000 --ingroup www-data --shell /bin/bash www-data \
+        && echo "www-data ALL = (ALL) NOPASSWD: ALL" >> /etc/sudoers \
+        && chown -R www-data:www-data /home/www-data \
     ;fi
 
-###
-## [FD]
-## A simple, fast and user-friendly alternative to 'find'
-###
+RUN set -xe \
+    && echo "---> Adding USER to IMAGE" \
+    && addgroup --gid ${USER_GID:-1000} $USER_NAME \
+    && adduser --gecos "" --disabled-password --uid ${USER_UID:-1000} --ingroup $USER_NAME --shell /bin/bash $USER_NAME \
+    && echo "$USER_NAME ALL = (ALL) NOPASSWD: ALL" >> /etc/sudoers \
+    # Replace it with /bin/bash:
+    && sed -i "/root/s/bin\/ash/bin\/bash/g" /etc/passwd
 
-ENV DEFAULT_PARAMETERS_FD -j $(nproc) --hidden --no-ignore --ignore-case
+RUN if [ ! -d "$REMOTE_SRC" ]; then \
+        mkdir -p /tmp/php /tmp/php/sessions /tmp/php/uploads $REMOTE_SRC \
+        && chown -R $USER_NAME:$USER_NAME $REMOTE_SRC /var/www \
+    ;fi
 
-RUN set -ex \
-        && echo "---> Adding [FD]" \
-        && wget -O /tmp/fd.deb $(curl -s https://api.github.com/repos/sharkdp/fd/releases/latest | grep -Po '"browser_download_url":\s*"\K[^"]+/fd_.*_amd64.deb(?=")') \
-        && dpkg -i /tmp/fd.deb \
-        && rm /tmp/fd.deb \
-        && which fd; fd --version
+RUN set -xe \
+    && echo "---> Remove default files PHP-FPM" \
+    # /usr/local/etc/php-fpm.conf.default
+    && rm $PHP_INI_DIR-fpm.conf.default \
+    # /usr/local/etc/php-fpm.d/www.conf.default
+    && rm $PHP_FPM_POOL_DIR/www.conf.default \
+    # /usr/local/etc/php-fpm.d/docker.conf
+    && rm $PHP_FPM_POOL_DIR/docker.conf \
+    # /usr/local/etc/php-fpm.d/zz-docker.conf
+    && rm $PHP_FPM_POOL_DIR/zz-docker.conf \
+    && rm -rf /tmp/pear ~/.pearrc \
+    && rm -rf /var/www/html
 
-###
-## [EXA]
-## Replacement for 'ls' written in Rust. https://the.exa.website/
-###
+COPY $LOCAL_DOCKER_PHP_PATH/logrotate/cronjob /home/${USER_NAME}/logrotate/
+COPY $LOCAL_DOCKER_PHP_PATH/logrotate/logrotate.conf /home/${USER_NAME}/logrotate/
+COPY $LOCAL_DOCKER_PHP_PATH/logrotate/conf.d/* /home/${USER_NAME}/logrotate/conf.d/
 
-RUN set -ex \
-        && echo "---> Adding [EXA]" \
-        && wget -O /tmp/exa.zip $(curl -s https://api.github.com/repos/ogham/exa/releases/latest | grep -Po '"browser_download_url":\s*"\K[^"]+/exa-linux-x86_64-.*.zip(?=")') \
-        && unzip /tmp/exa.zip -d /usr/local/bin/ \
-        && mv /usr/local/bin/exa-linux-x86_64 /usr/local/bin/exa \
-        && rm /tmp/exa.zip \
-        && which exa; exa --version
+RUN set -xe; \
+    \
+    # ps -ef | grep cron | grep -v grep
+    echo "---> Create Cron Files"; \
+    \
+    touch /var/log/cron.log; \
+    \
+    mkdir -p /var/spool/cron/crontabs; \
+    \
+    touch /var/spool/cron/crontabs/$USER_NAME
 
-###
-## php.ini PRODUCTION
-###
+# CRON LOGROTATE
+RUN set -xe; \
+    \
+    echo "---> Logrotate Config"; \
+    \
+    LOGROTATE_PATH=/home/$USER_NAME/logrotate; \
+    mkdir -p $LOGROTATE_PATH/conf.d; \
+    touch $LOGROTATE_PATH/status; \
+    \
+    mkdir -p /var/log/rotate; \
+    touch /var/log/logrotate.log; \
+    \
+    rm -f /etc/periodic/daily/logrotate; \
+    rm -rf /etc/logrotate.*
 
-RUN set -ex \
-        && echo "---> Move PHP.INI(PRODUCTION)" \
-        && rm ${PHP_INI_DIR}/php.ini-development \
-        && mv ${PHP_INI_DIR}/php.ini-production ${PHP_INI_DIR}/php.ini
+RUN set -xe \
+    && echo "---> Changing Permissions" \
+    && chown -R $USER_NAME:$USER_NAME \
+        /usr/local/etc \
+        /var/run /var/run/ \
+        /usr/local/var/run \
+        /home/${USER_NAME} \
+        $LOG_PATH \
+        /var/log \
+        /tmp/php
 
-###
-## Verify PHP
-###
+# ENTRYPOINT
+COPY $LOCAL_DOCKER_PHP_PATH/docker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-RUN set -ex \
-        && /usr/local/sbin/php-fpm --test \
-        && PHP_ERROR="$( php -v 2>&1 1>/dev/null )" \
-        && if [ -n "$PHP_ERROR" ]; then echo "$PHP_ERROR"; false; fi \
-        && php -m; php -v; php --ini
-
-###
-## PERMISSION
-###
-
-RUN set -ex \
-        && echo "---> Changing permissions" \
-        && mkdir -p $REMOTE_SRC \
-        && chown -R $DEFAULT_USER:$DEFAULT_USER /usr/local/lib/php \
-                                                /usr/local/var/log \
-                                                /usr/local/var/run \
-                                                /usr/local/etc \
-                                                /var/www \
-                                                /home/${DEFAULT_USER}
-        # && fd . /var/www $DEFAULT_PARAMETERS_FD --exec chown $DEFAULT_USER:$DEFAULT_USER {} \; \
-        # && fd . /usr/local/lib/php $DEFAULT_PARAMETERS_FD --exec chown $DEFAULT_USER:$DEFAULT_USER {} \; \
-        # && fd . /home/$DEFAULT_USER $DEFAULT_PARAMETERS_FD --exec chown -R $DEFAULT_USER:$DEFAULT_USER /home/$DEFAULT_USER {} \;
-
-###
-## Define the running USER
-###
-USER $DEFAULT_USER
-
-###
-## COMPOSER
-###
-
-RUN set -ex \
-        && echo "---> COMPOSER" \
-        && COMPOSER_HOME="/home/${DEFAULT_USER}/.composer/" \
-        && curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/usr/local/bin --filename=composer \
-        && composer global require hirak/prestissimo:"^0.3" --ansi \
-        && composer global install --prefer-dist --no-dev --no-suggest --optimize-autoloader --ansi \
-        && composer clear-cache
-
-###
-## PHPUnit
-###
-
-RUN set -ex \
-        && echo "---> PHPUNIT" \
-        && wget https://phar.phpunit.de/phpunit.phar \
-        && chmod +x phpunit.phar \
-        && sudo mv phpunit.phar /usr/local/bin/phpunit \
-        && command -v phpunit
+#####
+## APPLICATION
+#####
 
 # Application directory
-# Sets the working directory for any RUN, CMD, ENTRYPOINT, COPY and ADD instructions that follow it in the Dockerfile.
 WORKDIR $REMOTE_SRC
+
+# Define the running USER
+USER $USER_NAME
+
+# Remove folder docker
+RUN     if [ -d ${LOCAL_DOCKER_FOLDER} ]; then \
+            rm -rf ${LOCAL_DOCKER_FOLDER} \
+        ;fi
+
+# Files APP
+# Copy our application
+COPY $LOCAL_APP_FOLDER $REMOTE_SRC
+
+## Copy the downloaded dependencies from the {vendor} stage
+COPY --from=vendor /app/vendor/ ./vendor/
+COPY --from=vendor /app/composer.json ./composer.json
+COPY --from=vendor /app/composer.lock ./composer.lock
+
+## Copy the downloaded dependencies from the {frontend} stage
+COPY --from=frontend /app/public/ ./public/
+
+RUN sudo mkdir -p   storage/logs \
+                    storage/logs/rotate \
+                    storage/app/public \
+                    storage/framework/cache \
+                    storage/framework/sessions \
+                    storage/framework/views
+
+RUN sudo chown -R $USER_NAME:$USER_NAME $REMOTE_SRC /var/www
+
+RUN set -xe \
+    && echo "---> Installing Composer" \
+    && COMPOSER_HOME="/home/${USER_NAME}/.composer/" \
+    && curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/usr/local/bin --filename=composer --version=2.0.8 \
+    && composer clear-cache \
+    && composer --ansi
 
 # Environment variables
 # Default: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ENV PATH="$PATH:/home/${DEFAULT_USER}/.composer/vendor/bin"
+ENV PATH="$PATH:/home/${USER_NAME}/.composer/vendor/bin"
+
+RUN set -xe \
+    && php artisan optimize:clear --ansi || true \
+    \
+    && composer run-script post-root-package-install || true \
+    && composer run-script post-create-project-cmd || true \
+    && composer dump-autoload --optimize --classmap-authoritative --no-dev --ansi || true \
+    && composer run-script post-autoload-dump || true
+
+RUN set -xe \
+    && DEFAULT_PARAMETERS_FD="--threads $(nproc) --hidden --no-ignore --ignore-case --show-errors" \
+    && DEFAULT_EXCLUDE_FD='--exclude public -E .git -E vendor' \
+    # -E, --exclude <pattern>... Exclude files/directories that match the given glob pattern
+    # -E "{**/fileX,**/fileY}"
+    # -E "{folderX,folderY}"
+    && sudo fd $DEFAULT_EXCLUDE_FD $DEFAULT_PARAMETERS_FD --type directory --exec chmod 755 {} \; . $REMOTE_SRC \
+    && sudo fd $DEFAULT_EXCLUDE_FD $DEFAULT_PARAMETERS_FD --type file --exec chmod 644 {} \; . $REMOTE_SRC \
+    && sudo chgrp -R $USER_NAME storage bootstrap/cache \
+    && sudo chmod -R ug+rwx storage bootstrap/cache \
+    && sudo chown -R $USER_NAME:$USER_NAME $REMOTE_SRC \
+    && sudo chmod a+x artisan \
+    && php artisan view:clear \
+    && php artisan route:clear \
+    && php artisan config:clear \
+    && php artisan storage:link \
+    && php artisan clear-compiled \
+    && exa --all --group --header --links --long --accessed --modified --git --icons --color=always
+
+VOLUME ${LOG_PATH}
+
+# Let INIT PID 1 handle all the zombies
+ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.sh"]
+# As non daemon and single base image, it may be used as cli container
+CMD ["/bin/bash"]
+
+# Override stop signal to stop process gracefully
+# https://github.com/php/php-src/blob/php-8.0.1/sapi/fpm/php-fpm.8.in#L163
+STOPSIGNAL SIGQUIT
+
+# set recommended PHP.ini settings
+# see https://secure.php.net/manual/en/opcache.installation.php
+RUN { \
+        echo 'session.use_strict_mode = 1'; \
+        echo 'session.use_cookies = 1'; \
+        echo 'session.cookie_secure = 1'; \
+        echo 'session.use_only_cookies = 1'; \
+        echo 'session.cookie_httponly = 1'; \
+        echo 'session.cookie_samesite = "Strict"'; \
+    } > /usr/local/etc/php/conf.d/zz-session-strict.ini
+
+# PHP-FPM
+EXPOSE 9000 9001 9003 8080 8000
 
 # vim:set ft=dockerfile:

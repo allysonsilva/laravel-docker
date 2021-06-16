@@ -1,0 +1,32 @@
+# @see https://trstringer.com/simple-vs-oneshot-systemd-service/
+[Unit]
+Description=Docker Compose Application Service
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=YOUR_USER
+RestartSec=120
+Restart=on-failure
+TimeoutStopSec=60
+TimeoutStartSec=300
+RemainAfterExit=true
+StandardOutput=journal+console
+WorkingDirectory=/var/www/docker/
+# ExecStartPre=/usr/local/bin/docker-compose pull --quiet --ignore-pull-failures
+ExecStart=/usr/local/bin/docker-compose --compatibility up --force-recreate --no-build --no-deps --detach
+# NOTE: The service fails and halts execution.
+#       But what if you didn’t want that failure to stop the service from continuing? You can simply add a - character in front of the executable.
+ExecStart=-/usr/bin/make -f Makefile \
+    -f services/app/Makefile \
+    docker-up-app
+ExecStart=-/usr/bin/make -f Makefile \
+    -f services/nginx/Makefile \
+    docker-up-webserver
+ExecStart=/usr/bin/make docker-up context=traefik version=v0
+ExecStop=/usr/bin/make docker-rmf
+ExecStop=/usr/bin/make docker-prune
+
+[Install]
+WantedBy=multi-user.target

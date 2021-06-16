@@ -1,0 +1,19 @@
+## DYNAMIC CONFIGURATION
+
+# @see https://doc.traefik.io/traefik/routing/services/#weighted-round-robin-service
+# @see https://www.cometari.com/case-study/container-orchestration-with-docker-swarm-and-traefik
+
+http:
+    services:
+        webserver-canary:
+            weighted:
+                # Load balancing between Traefik services
+                services:
+                    ### BEGIN-WEBSERVER
+                    - name: webserver@docker
+                      weight: 5
+                    ### END-WEBSERVER
+                    ### BEGIN-WEBSERVER-TEMPORARY
+#                   - name: webserver-temporary@docker
+#                     weight: 1
+                    ### END-WEBSERVER-TEMPORARY

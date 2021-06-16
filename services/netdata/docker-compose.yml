@@ -1,0 +1,95 @@
+version: '3.8'
+
+networks:
+    external_network:
+        external: true
+        name: ${DEFAULT_DOCKER_NETWORK}
+    traefik_network:
+        external: true
+        name: ${TRAEFIK_DOCKER_NETWORK}
+    dockerproxy_network:
+        driver: bridge
+        name: ${COMPOSE_PROJECT_NAME}_dockerproxy_network
+
+volumes:
+    netdataconfig:
+    netdatalib:
+    netdatacache:
+    external_webserver_nginx_logs:
+        external: true
+        name: ${CONTAINER_NAME_PREFIX?Variable "$CONTAINER_NAME_PREFIX" not set}_webserver_nginx_logs
+
+services:
+
+    netdata:
+        image: netdata/netdata:v1.31
+        hostname: netdata.${DOMAIN}
+        container_name: ${CONTAINER_NAME_PREFIX}_netdata
+        working_dir: /etc/netdata
+        environment:
+            - DO_NOT_TRACK=1
+            - DOCKER_HOST=${CONTAINER_NAME_PREFIX}_dockerproxy:2375
+        # ports:
+        #     - 19999
+        labels:
+            traefik.enable: true
+            traefik.tags: public
+            traefik.http.routers.netdata-rtr.tls: true
+            traefik.http.routers.netdata-rtr.priority: 20
+            traefik.http.routers.netdata-rtr.entrypoints: websecure
+            traefik.http.routers.netdata-rtr.rule: Host(`netdata.${DOMAIN}`)
+            traefik.http.routers.netdata-rtr.service: netdata-svc
+            traefik.http.routers.netdata-rtr.middlewares: management@file
+            traefik.http.services.netdata-svc.loadbalancer.server.port: 19999
+        cap_add:
+            - SYS_PTRACE
+        security_opt:
+            - apparmor:unconfined
+        volumes:
+            - netdataconfig:/etc/netdata
+            - netdatalib:/var/lib/netdata
+            - netdatacache:/var/cache/netdata
+            - external_webserver_nginx_logs:/var/log/nginx:ro
+            - ./configs/netdata.conf:/etc/netdata/netdata.conf:ro
+            - ./configs/orchestrators/go.d.conf:/etc/netdata/go.d.conf:ro
+            - ./configs/health.conf:/etc/netdata/health_alarm_notify.conf:ro
+            - ./configs/modules/go.d/:/etc/netdata/go.d/
+            - ./configs/alarms/:/etc/netdata/health.d/
+            - /etc/passwd:/host/etc/passwd:ro
+            - /etc/group:/host/etc/group:ro
+            - /proc:/host/proc:ro
+            - /sys:/host/sys:ro
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+            - /etc/os-release:/host/etc/os-release:ro
+        networks:
+            traefik_network:
+            external_network:
+            dockerproxy_network:
+        restart: unless-stopped
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "5"
+                mode: "non-blocking"
+                tag: "logging-netdata"
+        deploy:
+            resources:
+                limits:
+                    cpus: '1'
+                    memory: 1024M
+
+    dockerproxy:
+        image: tecnativa/docker-socket-proxy:0.1
+        hostname: dockerproxy
+        container_name: ${CONTAINER_NAME_PREFIX}_dockerproxy
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+        environment:
+            - NETWORKS=1
+            - SERVICES=1
+            - CONTAINERS=1
+        privileged: true
+        networks:
+            dockerproxy_network:

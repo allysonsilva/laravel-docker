@@ -1,0 +1,58 @@
+version: '3.8'
+
+networks:
+    external_network:
+        external: true
+        name: ${DEFAULT_DOCKER_NETWORK}
+
+volumes:
+    redis_data:
+
+secrets:
+    redis_ca:
+        file: ./ssl/ca.pem
+    redis_dhparam:
+        file: ./ssl/dhparam.pem
+    redis_server_key:
+        file: ./ssl/server-key.pem
+    redis_server_cert:
+        file: ./ssl/server-cert.pem
+
+services:
+
+    # make docker-up context=redis version=v1 || make docker-up context=redis version=v1 service=redis scale=2 services=redis
+    #   docker exec -it v1_company_redis_1 redis-cli -n 0 -p 6379
+    #   127.0.0.1:6379> AUTH "YOUR_REDIS_PASSWORD"
+    # OR
+    #   redis-cli \
+    #       -p {PORT TCP/6380} \
+    #       -h {SERVER IP} \
+    #       --tls \
+    #       --cert ./services/redis/ssl/client-cert.pem \
+    #       --key ./services/redis/ssl/client-key.pem \
+    #       --cacert ./services/redis/ssl/ca.pem
+    #   127.0.0.1:6379> AUTH "YOUR_REDIS_PASSWORD"
+    redis:
+        image: redis:6.2
+        hostname: redis
+        # container_name: ${CONTAINER_NAME_PREFIX}_redis
+        secrets:
+            - source: redis_ca
+              target: /etc/ssl/ca.pem
+            - source: redis_dhparam
+              target: /etc/ssl/dhparam.pem
+            - source: redis_server_key
+              target: /etc/ssl/server-key.pem
+            - source: redis_server_cert
+              target: /etc/ssl/server-cert.pem
+        ports:
+            - 6380
+        cap_add:
+            - SYS_RESOURCE
+        volumes:
+            - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+            - redis_data:/data
+        command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--appendonly", "yes"]
+        networks:
+            external_network:
+                # ipv4_address: 172.20.4.3

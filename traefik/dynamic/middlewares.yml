@@ -1,0 +1,126 @@
+---
+## DYNAMIC CONFIGURATION
+
+http:
+
+    middlewares:
+
+        security:
+            chain:
+                middlewares:
+                    - HSTS-headers
+                    - security-headers
+
+        management:
+            chain:
+                middlewares:
+                    - security
+                    - low-rateLimit
+                    - noindex-page-headers
+                    # - authelia-forwardAuth@docker
+
+        # http(s)://(www.) to https://
+        redirect-to-https:
+            # redirectScheme:
+            #     scheme: https
+            #     permanent: true
+            #     port: '{{ env "HTTPS_PORT" }}'
+            redirectRegex:
+                regex: "^https?://(?:www\\.)?(.+)"
+                replacement: "https://${1}"
+                permanent: true
+
+        low-rateLimit:
+            rateLimit:
+                average: 100
+                period: 10s
+                burst: 50
+                sourceCriterion:
+                    ipStrategy:
+                        excludedIPs:
+                            - 127.0.0.1/32
+                    # requestHeaderName: X-Real-Ip
+                    # requestHost: true
+
+        with-compress:
+            compress:
+                excludedContentTypes:
+                    - text/event-stream
+
+        autodetect-contentType:
+            contentType:
+                autoDetect: false
+
+        digestAuth:
+            digestAuth:
+                removeHeader: true
+                users:
+                    # htdigest -c file traefik admin
+                    - "admin:traefik:9d62c6a44cd9a4ac3e1f5658db57fa54" # admin:@#1234-app
+
+        known-ipWhiteList:
+            ipWhiteList:
+                sourceRange:
+                    - "{{ env "TRAEFIK_WHITELIST_IP_DASHBOARD" }}"
+
+        docker-known-ips:
+            ipWhiteList:
+                sourceRange:
+                    - "172.20.0.0/16"
+                    - "172.25.0.0/16"
+
+        # Available Header Options: https://github.com/unrolled/secure#available-options
+        # A great resource for these headers is your preferred browser's docs. Firefox: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers
+        # https://github.com/OWASP/CheatSheetSeries/blob/master/cheatsheets/Clickjacking_Defense_Cheat_Sheet.md
+        # Check headers here, don't include OAuth when checking headers, otherwise you are checking google's headers: https://securityheaders.com
+        # or check them here: https://observatory.mozilla.org/
+
+        security-headers:
+            # Replaces the headers in NGINX in the file ./nginx/configs/nginx.d/10-security-headers.conf or any other header
+            headers:
+                sslRedirect: true
+                sslProxyHeaders:
+                    X-Forwarded-Proto: https
+                hostsProxyHeaders:
+                    - X-Forwarded-Host
+                browserXssFilter: true
+                contentTypeNosniff: true
+                referrerPolicy: same-origin
+                customFrameOptionsValue: SAMEORIGIN
+                # ContentSecurityPolicy: "default-src * 'self' https: data: blob: 'unsafe-inline' 'unsafe-hashes' 'unsafe-eval'; upgrade-insecure-requests;"
+                featurePolicy: >-
+                    camera 'none'; geolocation 'none'; microphone 'none'; payment 'none';
+                    usb 'none'; midi 'none'; fullscreen 'self';
+                customResponseHeaders:
+                    # X-Robots-Tag: "none,noarchive,nosnippet,notranslate,noimageindex,"
+                    server: ""
+
+        HSTS-headers:
+            headers:
+                # HSTS
+                stsPreload: true
+                forceSTSHeader: true
+                stsSeconds: 31536000
+                stsIncludeSubdomains: true
+
+        noindex-page-headers:
+            headers:
+                customResponseHeaders:
+                    X-Robots-Tag: "none,noarchive,nosnippet,notranslate,noimageindex,"
+
+        cors-headers:
+            headers:
+                sslRedirect: true
+                accessControlAllowCredentials: true
+                accessControlMaxAge: 100
+                addVaryHeader: true
+                accessControlAllowMethods:
+                    - GET
+                    # - PUT
+                    # - OPTION
+                    # - POST
+                    # - DELETE
+                accessControlAllowOriginList:
+                    - "https://{{ env "DOMAIN" }}"
+                accessControlAllowHeaders:
+                    - "*"
