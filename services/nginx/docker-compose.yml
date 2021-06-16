@@ -1,0 +1,172 @@
+---
+version: '3.8'
+
+volumes:
+    webserver_logs:
+        # name: ${CONTAINER_NAME_PREFIX}_webserver_logs
+    webserver_nginx_logs:
+        # name: ${CONTAINER_NAME_PREFIX}_webserver_nginx_logs
+    webserver_GeoIP:
+        # name: ${CONTAINER_NAME_PREFIX}_webserver_GeoIP
+
+networks:
+    external_network:
+        external: true
+        name: ${DEFAULT_DOCKER_NETWORK}
+    traefik_network:
+        external: true
+        name: ${TRAEFIK_DOCKER_NETWORK}
+
+services:
+
+    # docker-compose \
+    #   --compatibility \
+    #   --project-name v1_company \
+    #   --env-file .env \
+    #   -f services/nginx/docker-compose.yml \
+    #   -f services/nginx/docker-compose.certs.yml \
+    #   -f services/app/docker-compose.webserver.yml \
+    #   -f services/goaccess/docker-compose.webserver.yml \
+    #   up \
+    #   --force-recreate --no-build --no-deps \
+    #   webserver
+    webserver:
+        init: true
+        image: ${WEBSERVER_IMAGE}
+        hostname: ${CONTAINER_NAME_PREFIX}_webserver
+        # container_name: ${CONTAINER_NAME_PREFIX?Variable $CONTAINER_NAME_PREFIX not set}_webserver
+        labels:
+            - "traefik.enable=true"
+            - "traefik.tags=public"
+            - "traefik.http.services.webserver.loadbalancer.server.port=443"
+            - "traefik.http.services.webserver.loadbalancer.server.scheme=https"
+            - "traefik.http.services.webserver.loadbalancer.passhostheader=true"
+            - "traefik.http.services.webserver.loadbalancer.healthcheck.path=/"
+            - "traefik.http.services.webserver.loadbalancer.healthcheck.scheme=http"
+            - "traefik.http.services.webserver.loadbalancer.healthcheck.port=7080"
+            - "traefik.http.services.webserver.loadbalancer.healthcheck.interval=10s"
+            - "traefik.http.services.webserver.loadbalancer.healthcheck.timeout=1s"
+            - "traefik.http.services.webserver.loadbalancer.healthcheck.followRedirects=true"
+            # ! https://github.com/traefik/traefik/issues/5576
+            - "traefik.http.routers.do-nothing-webserver.priority=1"
+            - "traefik.http.routers.do-nothing-webserver.entrypoints=do-nothing"
+            - "traefik.http.routers.do-nothing-webserver.rule=Host(`webserver`)"
+        build:
+            context: ${DOCKER_NGINX_PATH}
+            dockerfile: ./Dockerfile
+            args:
+                TAG_APP_IMAGE: ${APP_IMAGE}
+                APP_PATH_SRC: ${APP_PATH_SRC}
+                USER_UID: ${USER_UID:-1000}
+                USER_GID: ${USER_GID:-1000}
+                # # Must be in base64 format
+                # SSH_PUBLIC_KEY:
+                # SSH_PRIVATE_KEY:
+        # # Uncomment when traefik is not being used
+        # ports:
+        #     - "${WEBSERVER_PORT_HTTP:-80}:80"
+        #     - "${WEBSERVER_PORT_HTTPS:-443}:443"
+        #     # - "8443:443"
+        expose:
+            - 80
+            - 443
+            - 7080
+            - 8098
+            - 8099
+            - 8443
+        env_file:
+            - .env.container
+        environment: &webserver-environment
+            HTTP_PORT: ${WEBSERVER_PORT_HTTP}
+            HTTPS_PORT: ${WEBSERVER_PORT_HTTPS}
+            # # Same as ${PHPFPM_REQUEST_TERMINATE_TIMEOUT}
+            NGINX_FASTCGI_READ_TIMEOUT: 120s
+        volumes: &webserver-volumes
+            - type: volume
+              source: webserver_logs
+              target: /var/log
+            - type: volume
+              source: webserver_nginx_logs
+              target: /var/log/nginx
+            - type: volume
+              source: webserver_GeoIP
+              target: /usr/local/share/GeoIP
+            - type: bind
+              source: ${DOCKER_NGINX_PATH}/docker-entrypoint.sh
+              target: /entrypoint.sh
+              read_only: true
+            - type: bind
+              source: ./servers/
+              target: /etc/nginx/servers/
+            - type: bind
+              source: ${DOCKER_NGINX_PATH}/configs/
+              target: /etc/nginx/
+            - ./certs/challenges/:/var/www/letsencrypt/challenges/:ro
+        restart: on-failure:3
+        # Graceful shutdown
+        stop_signal: SIGQUIT
+        stop_grace_period: 120s
+        networks:
+            traefik_network:
+            external_network:
+                # ipv4_address: 172.20.20.20
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "5m"
+                max-file: "5"
+                mode: "non-blocking"
+                tag: "logging-webserver"
+        # # docker inspect --format='{{json .State.Health}}' webserver
+        healthcheck:
+            test: ["CMD", "curl", "--fail", "http://127.0.0.1:7080"]
+            start_period: 0s
+            interval: 10s
+            timeout: 1s
+            retries: 3
+        # # docker-compose --compatibility up
+        deploy:
+            resources:
+                limits:
+                    cpus: ${WEBSERVER_LIMITS_CPU:? Missing $WEBSERVER_LIMITS_CPU env var}
+                    memory: ${WEBSERVER_LIMITS_MEMORY}
+                reservations:
+                    memory: ${WEBSERVER_RESERVATIONS_MEMORY}
+
+    ### BEGIN-WEBSERVER-TEMPORARY
+    webserver-temporary:
+        init: true
+        image: ${WEBSERVER_IMAGE}
+        hostname: webserver-temporary
+        container_name: ${WEBSERVER_TEMP_CONTAINER_NAME:-webserver-temporary}
+        labels:
+            - "traefik.enable=true"
+            - "traefik.tags=public"
+            - "traefik.http.services.webserver-temporary.loadbalancer.server.port=443"
+            - "traefik.http.services.webserver-temporary.loadbalancer.server.scheme=https"
+            - "traefik.http.services.webserver-temporary.loadbalancer.passhostheader=true"
+            - "traefik.http.routers.do-nothing-webserver-temporary.priority=1"
+            - "traefik.http.routers.do-nothing-webserver-temporary.entrypoints=do-nothing"
+            - "traefik.http.routers.do-nothing-webserver-temporary.rule=Host(`webserver-temporary`)"
+        env_file:
+            - .env.container
+        environment:
+            <<: *webserver-environment
+        volumes: *webserver-volumes
+        networks:
+            traefik_network:
+            external_network:
+        healthcheck:
+            test: ["CMD", "curl", "--fail", "http://${WEBSERVER_TEMP_CONTAINER_NAME:-webserver-temporary}:7080"]
+            start_period: 0s
+            interval: 5s
+            timeout: 1s
+            retries: 3
+        deploy:
+            resources:
+                limits:
+                    cpus: ${WEBSERVER_TEMP_LIMITS_CPU:-1}
+                    memory: ${WEBSERVER_TEMP_LIMITS_MEMORY:-512M}
+                reservations:
+                    memory: ${WEBSERVER_TEMP_RESERVATIONS_MEMORY:-128M}
+    ### END-WEBSERVER-TEMPORARY

@@ -1,0 +1,35 @@
+---
+## DYNAMIC CONFIGURATION
+
+http:
+
+    routers:
+
+        traefik-secure:
+            rule: 'Host(`traefik.{{ env "DOMAIN" }}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))'
+            # # When a TLS section is specified, it instructs Traefik that the current router is dedicated to
+            # # HTTPS requests only (and that the router should ignore HTTP (non TLS) requests)
+            tls: {}
+            priority: 99
+            service: api@internal
+            entrypoints:
+                - websecure
+            middlewares:
+                - management
+
+    middlewares:
+
+        # traefik-ipWhiteList:
+        #     ipWhiteList:
+        #         sourceRange:
+        #             - "172.20.0.0/16"
+        #             - "172.25.0.0/16"
+        #             - "{{ env "TRAEFIK_WHITELIST_IP_DASHBOARD" }}"
+
+        traefik-headers:
+            headers:
+                stsSeconds: 31536000
+                browserXssFilter: true
+                contentTypeNosniff: true
+                customFrameOptionsValue: SAMEORIGIN
+                referrerPolicy: same-origin

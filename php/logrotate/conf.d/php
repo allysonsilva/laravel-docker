@@ -1,0 +1,9 @@
+/usr/local/var/log/php/php.errors.log {
+    rotate 5
+
+    weekly
+
+    nocreate
+
+    maxsize 10M
+}

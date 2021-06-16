@@ -1,0 +1,49 @@
+version: '3.8'
+
+networks:
+    external_network:
+        external: true
+        name: ${DEFAULT_DOCKER_NETWORK}
+
+volumes:
+    external_webserver_nginx_logs:
+        external: true
+        name: ${CONTAINER_NAME_PREFIX?Variable "$CONTAINER_NAME_PREFIX" not set}_webserver_nginx_logs
+    # # Uncomment when WITH_GEOIP2=true
+    # external_webserver_GeoIP:
+    #     external: true
+    #     name: ${CONTAINER_NAME_PREFIX}_webserver_GeoIP
+
+services:
+
+    goaccess:
+        image: allinurl/goaccess:1.5
+        hostname: goaccess
+        container_name: ${CONTAINER_NAME_PREFIX}_goaccess
+        working_dir: /etc/goaccess
+        environment:
+            # - PUID=1000
+            # - PGID=1000
+            - DOMAIN=${DOMAIN}
+            - WITH_GEOIP2=false
+            - HTTPS_PORT=${WEBSERVER_PORT_HTTPS}
+            - LANG=en_US.UTF-8
+            - TZ=America/Fortaleza
+        volumes:
+            - ${DOCKER_GOACCESS_SERVICE_PATH}/entrypoint.sh:/entrypoint.sh:ro
+            - ${DOCKER_GOACCESS_SERVICE_PATH}/goaccess.conf:/etc/goaccess/goaccess.conf.tpl:ro
+            - ${DOCKER_GOACCESS_SERVICE_PATH}/html:/var/www/goaccess:rw
+            - external_webserver_nginx_logs:/var/log/nginx:ro
+            # # Uncomment when WITH_GEOIP2=true
+            # - external_webserver_GeoIP:/etc/goaccess/GeoIP:ro
+        entrypoint: ["/entrypoint.sh"]
+        networks:
+            external_network:
+                # ipv4_address: 172.20.0.99
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "5m"
+                max-file: "5"
+                mode: "non-blocking"
+                tag: "logging-goaccess"

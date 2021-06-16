@@ -1,0 +1,64 @@
+version: '3.8'
+
+networks:
+    external_network:
+        external: true
+        name: ${DEFAULT_DOCKER_NETWORK}
+
+volumes:
+    mysql_data:
+
+secrets:
+    mysql_ca:
+        file: ./ssl/ca.pem
+    mysql_server_key:
+        file: ./ssl/server-key.pem
+    mysql_server_cert:
+        file: ./ssl/server-cert.pem
+
+services:
+
+    # mysql -h 127.0.0.1 -P {PORT TCP/3306} -uapp -p'YOUR_MYSQL_PASSWORD' \
+    #     --ssl-ca=services/mysql/ssl/ca.pem \
+    #     --ssl-key=services/mysql/ssl/client-key.pem \
+    #     --ssl-cert=services/mysql/ssl/client-cert.pem
+    mysql:
+        image: mysql:8.0
+        hostname: database
+        container_name: ${CONTAINER_NAME_PREFIX}_database
+        secrets:
+            - source: mysql_ca
+              target: /etc/mysql-ssl/ca.pem
+            - source: mysql_server_key
+              target: /etc/mysql-ssl/server-key.pem
+            - source: mysql_server_cert
+              target: /etc/mysql-ssl/server-cert.pem
+        ports:
+            - 3306
+        volumes:
+            - ./my.cnf:/etc/mysql/conf.d/my.cnf:ro
+            - mysql_data:/var/lib/mysql
+        env_file:
+            - .env.container
+        working_dir: /var/lib/mysql
+        networks:
+            external_network:
+        # Graceful shutdown
+        stop_grace_period: 30s
+        restart: on-failure
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "5"
+                mode: "non-blocking"
+                tag: "logging-mysql"
+        deploy:
+            resources:
+                limits:
+                    memory: 8192M
+        healthcheck:
+            test: export MYSQL_PWD="$$MYSQL_PASSWORD"; output=$$(mysqladmin ping --host=127.0.0.1 --port=3306 --user=$$MYSQL_USER 2>&1); echo $$output | grep 'mysqld is alive' || { echo $$output; exit 1; }
+            interval: 60s
+            timeout: 5s
+            retries: 3

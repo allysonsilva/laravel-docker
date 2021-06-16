@@ -1,0 +1,139 @@
+## STATIC CONFIGURATION
+
+# @see https://doc.traefik.io/traefik/v2.4/getting-started/configuration-overview/
+# @see https://doc.traefik.io/traefik/v2.4/reference/static-configuration/cli/
+# @see https://docs.traefik.io/v2.4/reference/static-configuration/file/
+
+serversTransport:
+    insecureSkipVerify: true
+
+global:
+    sendAnonymousUsage: false
+    checkNewVersion: false
+
+log:
+    filePath: "/etc/traefik/traefik.log"
+    # format: json
+    level: INFO
+
+accessLog:
+    format: json
+    filePath: "/etc/traefik/access.log"
+    bufferingSize: 100
+    filters:
+        # statusCodes:
+        #     - "200"
+        #     - "300-302"
+        minDuration: "2s"
+    fields:
+        defaultMode: keep
+        names:
+            StartUTC: drop
+            ClientUsername: drop
+        headers:
+            defaultMode: keep
+            names:
+                Authorization: drop
+
+# https://doc.traefik.io/traefik/operations/api/#configuration
+api:
+    # insecure: true
+    # debug: true
+    dashboard: true
+
+metrics:
+    prometheus:
+        entryPoint: metrics
+
+entryPoints:
+    web:
+        address: ":80"
+        # http:
+        #     redirections:
+        #         entrypoint:
+        #             to: websecure
+        #             scheme: https
+        #             permanent: true
+
+    websecure:
+        address: ":443"
+        forwardedHeaders:
+            trustedIPs:
+                # Allow these IPs to set the X-Forwarded-* headers - Cloudflare IPs: https://www.cloudflare.com/ips/
+                - "173.245.48.0/20"
+                - "103.21.244.0/22"
+                - "103.22.200.0/22"
+                - "103.31.4.0/22"
+                - "141.101.64.0/18"
+                - "108.162.192.0/18"
+                - "190.93.240.0/20"
+                - "188.114.96.0/20"
+                - "197.234.240.0/22"
+                - "198.41.128.0/17"
+                - "162.158.0.0/15"
+                - "104.16.0.0/13"
+                - "104.24.0.0/14"
+                - "172.64.0.0/13"
+                - "131.0.72.0/22"
+                - "2400:cb00::/32"
+                - "2606:4700::/32"
+                - "2803:f800::/32"
+                - "2405:b500::/32"
+                - "2405:8100::/32"
+                - "2a06:98c0::/29"
+                - "2c0f:f248::/32"
+        # @see https://doc.traefik.io/traefik/routing/entrypoints/#transport
+        transport:
+            lifeCycle:
+                graceTimeOut: 60s
+            respondingTimeouts:
+                writeTimeout: 60s
+
+    # management:
+    #     address: ":8443"
+    #     # http:
+    #     #     redirections:
+    #     #         entrypoint:
+    #     #             to: management
+    #     #             scheme: https
+    #     #             permanent: true
+    #     #             priority: 99
+    #     transport:
+    #         lifeCycle:
+    #             graceTimeOut: 5
+    #         respondingTimeouts:
+    #             writeTimeout: 5s
+
+    metrics:
+        address: ":8882"
+
+    do-nothing:
+        address: ":8888"
+
+# certificatesResolvers:
+#     letsencrypt:
+#         acme:
+#             caServer: https://acme-v02.api.letsencrypt.org/directory
+#             keyType: RSA4096
+#             email: contact@yourdomain.tld
+#             storage: /etc/traefik/letsencrypt/acme.json
+#             dnsChallenge:
+#                 provider: manual
+#                 delayBeforeCheck: 60
+#                 resolvers:
+#                     - "1.1.1.1:53"
+#                     - "8.8.8.8:53"
+
+providers:
+    providersThrottleDuration: 5s
+    docker:
+        endpoint: "unix:///var/run/docker.sock"
+        watch: true
+        exposedByDefault: false
+        swarmMode: false
+        network: company_traefik_network
+        constraints: "Label(`traefik.tags`, `public`)"
+    file:
+        # Dynamic config
+        directory: /etc/traefik/dynamic
+        watch: true

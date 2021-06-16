@@ -1,0 +1,11 @@
+---
+version: '3.8'
+
+services:
+
+    webserver:
+        volumes:
+            - type: bind
+              source: ${DOCKER_GOACCESS_SERVICE_PATH}/html
+              target: /var/www/goaccess
+              read_only: true

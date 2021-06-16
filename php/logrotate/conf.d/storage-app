@@ -1,0 +1,16 @@
+{{REMOTE_SRC}}/storage/logs/[!worker-queue.out][!horizon.out][!scheduler]*.log
+{
+    rotate 12
+
+    # Log files are rotated every hour.
+    hourly
+
+    # New log files are not created (this overrides the create option).
+    nocreate
+
+    # Log files are rotated when they grow bigger than size bytes even before the additionally specified time interval (daily, weekly, monthly, or yearly).
+    maxsize 20M
+
+    # Logs are moved into directory for rotation.
+    olddir {{REMOTE_SRC}}/storage/logs/rotate
+}

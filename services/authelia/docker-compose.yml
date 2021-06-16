@@ -1,0 +1,76 @@
+version: '3.8'
+
+# @see https://www.smarthomebeginner.com/docker-authelia-tutorial/
+
+networks:
+    external_network:
+        external: true
+        name: ${DEFAULT_DOCKER_NETWORK}
+    traefik_network:
+        external: true
+        name: ${TRAEFIK_DOCKER_NETWORK}
+
+secrets:
+    # https://www.grc.com/passwords.htm
+    jwt:
+        file: ./secrets/jwt
+    session:
+        file: ./secrets/session
+    redis:
+        file: ./secrets/redis
+
+services:
+
+    authelia:
+        image: authelia/authelia:4.29
+        hostname: authelia
+        container_name: ${CONTAINER_NAME_PREFIX}_authelia
+        secrets:
+            - jwt
+            - session
+            - redis
+        labels:
+            traefik.enable: true
+            traefik.tags: public
+            # # When a TLS section is specified, it instructs Traefik that the current router is dedicated to HTTPS requests only
+            # # (and that the router should ignore HTTP (non TLS) requests)
+            traefik.http.routers.authelia-rtr.tls: true
+            traefik.http.routers.authelia-rtr.priority: 20
+            traefik.http.routers.authelia-rtr.entrypoints: websecure
+            traefik.http.routers.authelia-rtr.rule: Host(`auth.${DOMAIN}`)
+            traefik.http.routers.authelia-rtr.service: authelia-svc
+            traefik.http.services.authelia-svc.loadbalancer.server.port: 9091
+            traefik.http.services.authelia-svc.loadbalancer.sticky.cookie: true
+            traefik.http.services.authelia-svc.loadbalancer.sticky.cookie.httponly: true
+            traefik.http.services.authelia-svc.loadbalancer.sticky.cookie.secure: true
+            traefik.http.services.authelia-svc.loadbalancer.sticky.cookie.samesite: strict
+            traefik.http.middlewares.authelia-forwardAuth.forwardauth.address: http://${CONTAINER_NAME_PREFIX}_authelia:9091/api/verify?rd=https://auth.${DOMAIN}
+            traefik.http.middlewares.authelia-forwardAuth.forwardauth.trustForwardHeader: true
+            traefik.http.middlewares.authelia-forwardAuth.forwardauth.authResponseHeaders: Remote-User, Remote-Groups, Remote-Name, Remote-Email
+            traefik.http.routers.authelia-rtr.middlewares: management@file
+        expose:
+            - 9091
+        environment:
+            TZ: America/Fortaleza
+            AUTHELIA_JWT_SECRET_FILE: /run/secrets/jwt
+            AUTHELIA_SESSION_SECRET_FILE: /run/secrets/session
+            AUTHELIA_SESSION_REDIS_PASSWORD_FILE: /run/secrets/redis
+        volumes:
+            - ./configs:/config
+            - ./data:/data
+        restart: unless-stopped
+        networks:
+            external_network:
+            traefik_network:
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "1m"
+                max-file: "5"
+                mode: "non-blocking"
+                tag: "logging-authelia"
+        deploy:
+            resources:
+                limits:
+                    cpus: '1'
+                    memory: 1024M

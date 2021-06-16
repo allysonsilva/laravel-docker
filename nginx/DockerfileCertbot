@@ -1,0 +1,71 @@
+# docker build \
+#    --tag company/certbot:v1 \
+#    --build-arg TAG_IMAGE="certbot/certbot:v1.16.0" \
+#    --file DockerfileCertbot \
+#    .
+
+ARG TAG_IMAGE
+
+FROM ${TAG_IMAGE}
+
+RUN set -xe; \
+    \
+    echo "---> Installing Packages Dependencies"; \
+    \
+    apk --update upgrade --no-cache -q; \
+    \
+    apk add --no-cache \
+        sudo \
+        vim \
+        curl \
+        wget \
+        bash \
+        bash-completion; \
+    \
+    rm -rf /tmp/* /var/cache/apk/*
+
+ARG USER_NAME=certbot
+ENV USER_NAME $USER_NAME
+
+ARG GROUP_NAME=certbot
+ENV GROUP_NAME $GROUP_NAME
+
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+RUN if [ "$USER_UID" != 1000 ]; then \
+        set -xe \
+            && echo \
+            && echo "---> Adding the www-data(1000) user" \
+            && echo \
+            && deluser --remove-home www-data || true \
+            && delgroup www-data || true \
+            && addgroup --gid 1000 www-data \
+            && adduser --gecos "" --disabled-password --uid 1000 --ingroup www-data --shell /bin/bash www-data \
+            && echo "www-data ALL = (ALL) NOPASSWD: ALL" >> /etc/sudoers \
+            && chown -R www-data:www-data /home/www-data \
+    ;fi
+
+RUN set -xe; \
+    echo "---> Adding the ${USER_NAME}(${USER_UID}) user"; \
+    echo; \
+    addgroup --gid $USER_GID $GROUP_NAME; \
+    addgroup root $GROUP_NAME; \
+    adduser --gecos "" --disabled-password --uid $USER_UID --ingroup $GROUP_NAME --home /home/$USER_NAME --shell /bin/bash $USER_NAME; \
+    echo "$USER_NAME ALL = (ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+RUN set -xe; \
+    \
+    mkdir -p /var/www/certbot; \
+    \
+    chown -R $USER_NAME:$GROUP_NAME \
+        /var/log \
+        /var/www \
+        /etc/letsencrypt \
+        /var/lib/letsencrypt
+
+# Define the running USER
+USER $USER_NAME
+
+# As non daemon and single base image, it may be used as cli container
+CMD ["/bin/bash"]

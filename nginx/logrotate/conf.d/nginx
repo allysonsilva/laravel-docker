@@ -1,0 +1,27 @@
+/var/log/nginx/*.log {
+    # Log files are rotated count times before being removed or mailed to the address specified in a mail directive.
+    rotate 7
+
+    # Log files are rotated when they grow bigger than size bytes even before the additionally specified time interval (daily, weekly, monthly, or yearly).
+    maxsize 10M
+
+    # If sharedscripts is specified, the scripts are only run once, no matter how many logs match the wildcarded pattern, and whole pattern is passed to them.
+    sharedscripts
+
+    prerotate
+        if [ -d /etc/logrotate.d/httpd-prerotate ]; then
+            run-parts /etc/logrotate.d/httpd-prerotate
+        fi
+    endscript
+
+    postrotate
+        # @see signals https://nginx.org/en/docs/control.html
+        # kill -USR1 == nginx -s reopen
+        [ -s /var/run/nginx.pid ] && sudo kill -USR1 `cat /var/run/nginx.pid`
+
+        sudo chown -R ${USER_NAME}:${GROUP_NAME} /var/log/nginx
+
+        echo
+        echo "NGINX LOGs rotated successfully!"
+    endscript
+}

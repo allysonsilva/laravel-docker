@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# @see: http://dev.maxmind.com/geoip/geoipupdate/
+
+configFile=$@
+
+/usr/local/bin/geoipupdate --database-directory "/usr/local/share/GeoIP" --config-file "$configFile" >> /var/log/commands.log 2>&1
+
+if [ $? -eq 0 ]; then
+    # Reload the configuration file
+    sudo nginx -s reload
+
+    echo "GeoIP - date: `date +"%Y-%m-%d %T"` - user: $(whoami)" >> /var/log/GeoIP.log
+fi

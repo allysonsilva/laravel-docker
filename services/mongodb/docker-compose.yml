@@ -1,0 +1,59 @@
+version: '3.8'
+
+networks:
+    external_network:
+        external: true
+        name: ${DEFAULT_DOCKER_NETWORK}
+
+volumes:
+    mongodb_data:
+
+secrets:
+    mongodb_ca:
+        file: ./ssl/ca.pem
+    mongodb_server:
+        file: ./ssl/server.pem
+
+services:
+
+    # mongo --tls --tlsCAFile ca.pem --tlsCertificateKeyFile client.pem \
+    #       --host 127.0.0.1 --port {PORT TCP/27017} --username 'root' --authenticationDatabase 'admin' --password 'YOUR_MONGODB_ROOT_PASSWORD'
+    mongodb:
+        image: mongo:4.4
+        hostname: mongodb
+        container_name: ${CONTAINER_NAME_PREFIX}_mongodb
+        command: --config /etc/mongo/mongod.conf
+        secrets:
+            - source: mongodb_ca
+              target: /etc/ssl/ca.pem
+            - source: mongodb_server
+              target: /etc/ssl/server.pem
+        ports:
+            - 27017
+        volumes:
+            - ./mongod.conf:/etc/mongo/mongod.conf:ro
+            - mongodb_data:/data/db
+        env_file:
+            - .env.container
+        networks:
+            external_network:
+        # Graceful shutdown
+        stop_grace_period: 30s
+        restart: on-failure
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "5"
+                mode: "non-blocking"
+                tag: "logging-mongodb"
+        deploy:
+            resources:
+                limits:
+                    memory: 8192M
+        healthcheck:
+            test: echo 'db.runCommand({serverStatus:1}).ok' | mongo admin -u $$MONGO_INITDB_ROOT_USERNAME -p "$$MONGO_INITDB_ROOT_PASSWORD" --quiet | grep 1
+            start_period: 30s
+            interval: 60s
+            timeout: 5s
+            retries: 3

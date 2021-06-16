@@ -1,0 +1,38 @@
+---
+version: '3.8'
+
+secrets:
+    dhparam.pem:
+        file: ./certs/dhparam.pem
+    privkey.pem:
+        file: ./certs/privkey.pem
+    fullchain.pem:
+        file: ./certs/fullchain.pem
+    chain.pem:
+        file: ./certs/chain.pem
+    cert.pem:
+        file: ./certs/cert.pem
+
+services:
+
+    webserver:
+        secrets:
+            - source: dhparam.pem
+              target: /etc/nginx/certs/dhparam.pem
+            - source: privkey.pem
+              target: /etc/nginx/certs/privkey.pem
+            - source: fullchain.pem
+              target: /etc/nginx/certs/fullchain.pem
+            - source: chain.pem
+              target: /etc/nginx/certs/chain.pem
+
+    webserver-temporary:
+        secrets:
+            - source: dhparam.pem
+              target: /etc/nginx/certs/dhparam.pem
+            - source: privkey.pem
+              target: /etc/nginx/certs/privkey.pem
+            - source: fullchain.pem
+              target: /etc/nginx/certs/fullchain.pem
+            - source: chain.pem
+              target: /etc/nginx/certs/chain.pem

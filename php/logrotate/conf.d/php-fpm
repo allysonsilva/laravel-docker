@@ -1,0 +1,40 @@
+/usr/local/var/log/php/php-fpm.errors.log
+/usr/local/var/log/php/php-fpm.access.log
+/usr/local/var/log/php/php-fpm.*.access.log
+/usr/local/var/log/php/php-fpm.*.slow.log
+{
+    # Log files are rotated count times before being removed or mailed to the address specified in a mail directive.
+    rotate 7
+
+    # Remove rotated logs older than <count> days. The age is only checked if the logfile is to be rotated.
+    maxage 10
+
+    # Log files are rotated when they grow bigger than size bytes even before the additionally specified time interval (daily, weekly, monthly, or yearly).
+    maxsize 50M
+
+    # Truncate the original log file to zero size in place after creating a copy, instead of moving the old log file and optionally creating a new one.
+    copytruncate
+
+    # If sharedscripts is specified, the scripts are only run once, no matter how many logs match the wildcarded pattern, and whole pattern is passed to them.
+    sharedscripts
+
+    # The lines between postrotate and endscript (both of which must appear on lines by themselves) are executed (using /bin/sh) after the log file is rotated.
+    postrotate
+        PIDFILE=/usr/local/var/run/php-fpm.pid
+
+        # sudo /bin/kill -SIGUSR1 $(cat "$PIDFILE" 2>/dev/null) 2>/dev/null || true
+        # # Re-open LOG file
+        #   SIGUSR1 - will cycle the log files
+        #   SIGUSR2 - graceful reload of all workers + reload of fpm conf/binary
+        if [ -r "$PIDFILE" ]; then
+            # https://github.com/php/php-src/blob/php-8.0.3/sapi/fpm/php-fpm.8.in#L165
+            sudo /bin/kill -USR1 `cat $PIDFILE` > /dev/null 2>&1 || true
+
+            echo
+            echo "PHP-FPM LOGs rotated successfully!"
+        fi
+
+        # [ ! -f $PIDFILE ] || /bin/kill -USR1 `cat $PIDFILE`
+        # [ -r "$PIDFILE" ] && /bin/kill -USR1 $(cat "$PIDFILE") > /dev/null
+    endscript
+}

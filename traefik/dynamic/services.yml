@@ -1,0 +1,12 @@
+---
+## DYNAMIC CONFIGURATION
+
+# http:
+
+#     services:
+
+#         service0:
+#             loadBalancer:
+#                 passHostHeader: true
+#                 servers:
+#                     - url: "http://127.0.0.1:80"

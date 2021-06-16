@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+sudo chown -R $USER_NAME:$GROUP_NAME /var/log /home/$USER_NAME/logrotate
+
+/usr/sbin/logrotate -s /home/$USER_NAME/logrotate/status /home/$USER_NAME/logrotate/logrotate.conf
+
+exitvalue=$?
+
+if [ $exitvalue != 0 ]; then
+    /usr/bin/logger -t logrotate "::LOGROTATE:: Exited abnormally with [$exitvalue]"
+fi
+
+echo "Logrotate - date: `date +"%Y-%m-%d %T"` - user: $(whoami)" >> /var/log/logrotate.log
+
+exit 0

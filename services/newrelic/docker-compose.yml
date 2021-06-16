@@ -1,0 +1,28 @@
+version: '3.8'
+
+networks:
+    external_network:
+        external: true
+        name: ${DEFAULT_DOCKER_NETWORK}
+
+services:
+
+    newrelic-php-daemon:
+        image: newrelic/php-daemon:9.17.1
+        hostname: ${CONTAINER_NAME_PREFIX}_newrelic_daemon
+        container_name: ${CONTAINER_NAME_PREFIX}_newrelic_daemon
+        restart: unless-stopped
+        networks:
+            external_network:
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "1m"
+                max-file: "5"
+                mode: "non-blocking"
+                tag: "logging-newrelic-php-daemon"
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.5'
+                    memory: 256M

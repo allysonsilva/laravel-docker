@@ -1,0 +1,59 @@
+version: '3.8'
+
+volumes:
+    portainer_data:
+
+networks:
+    traefik_network:
+        external: true
+        name: ${TRAEFIK_DOCKER_NETWORK}
+
+services:
+
+    portainer:
+        image: portainer/portainer-ce:2.5.1-alpine
+        hostname: portainer
+        container_name: ${CONTAINER_NAME_PREFIX}_portainer
+        command: -H unix:///var/run/docker.sock
+        labels:
+            traefik.enable: true
+            traefik.tags: public
+            # # When a TLS section is specified, it instructs Traefik that the current router is dedicated to HTTPS requests only
+            # # (and that the router should ignore HTTP (non TLS) requests)
+            traefik.http.routers.portainer-rtr.tls: true
+            # traefik.http.routers.portainer-rtr.tls.options: default
+            # traefik.http.routers.portainer-rtr.tls.domains[0].main: ${DOMAIN}
+            # traefik.http.routers.portainer-rtr.tls.domains[0].sans: portainer.${DOMAIN}
+            traefik.http.routers.portainer-rtr.priority: 20
+            traefik.http.routers.portainer-rtr.entrypoints: websecure
+            traefik.http.routers.portainer-rtr.rule: Host(`portainer.${DOMAIN}`)
+            traefik.http.routers.portainer-rtr.service: portainer-svc
+            traefik.http.services.portainer-svc.loadbalancer.server.port: 9000
+            traefik.http.services.portainer-svc.loadbalancer.sticky.cookie: true
+            traefik.http.services.portainer-svc.loadbalancer.sticky.cookie.httponly: true
+            traefik.http.services.portainer-svc.loadbalancer.sticky.cookie.secure: true
+            traefik.http.services.portainer-svc.loadbalancer.sticky.cookie.samesite: strict
+            # traefik.http.middlewares.portainer-ipWhiteList.ipwhitelist.sourcerange: 127.0.0.1/32, ${PORTAINER_WHITELIST_IP:-0.0.0.0/32}
+            traefik.http.routers.portainer-rtr.middlewares: management@file
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+            - type: volume
+              source: portainer_data
+              target: /data
+        restart: unless-stopped
+        networks:
+            traefik_network:
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "1m"
+                max-file: "5"
+                mode: "non-blocking"
+                tag: "logging-portainer"
+        deploy:
+            resources:
+                limits:
+                    cpus: '1'
+                    memory: 1024M

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+sudo chown -R $USER_NAME:$USER_NAME /var/log /usr/local/var/log
+
+/usr/sbin/logrotate -s /home/$USER_NAME/logrotate/status /home/$USER_NAME/logrotate/logrotate.conf
+
+exitvalue=$?
+
+if [ $exitvalue != 0 ]; then
+    /usr/bin/logger -t logrotate "::LOGROTATE:: Exited abnormally with [$exitvalue]"
+fi
+
+echo "Logrotate - date: `date +"%Y-%m-%d %T"` - user: $(whoami)" >> /var/log/logrotate.log
+
+# You can also run logrotate by manually with the following command:
+# /usr/sbin/logrotate -s /home/app/logrotate/status --force --verbose /home/app/logrotate/logrotate.conf
+
+# You can write 10MB random data into this log file using the following command:
+# head -c 10m </dev/urandom > /usr/local/var/log/php/log-file
+
+exit 0

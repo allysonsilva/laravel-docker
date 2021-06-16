@@ -1,0 +1,76 @@
+version: '3.8'
+
+networks:
+    traefik_network:
+        external: true
+        name: ${TRAEFIK_DOCKER_NETWORK}
+
+secrets:
+    privkey.pem:
+        file: ${DOCKER_NGINX_SERVICE_PATH}/certs/privkey.pem
+    cert.pem:
+        file: ${DOCKER_NGINX_SERVICE_PATH}/certs/cert.pem
+
+services:
+
+    traefik:
+        image: traefik:v2.4
+        hostname: traefik
+        container_name: ${CONTAINER_NAME_PREFIX}_traefik
+        ports:
+            - target: 80
+              published: ${WEBSERVER_PORT_HTTP:-80}
+              protocol: tcp
+              mode: host
+            - target: 443
+              published: ${WEBSERVER_PORT_HTTPS:-443}
+              protocol: tcp
+              mode: host
+            # # https://doc.traefik.io/traefik/operations/dashboard/
+            # - 8443:8443
+            # # The Web UI (enabled by --api.insecure=true)
+            # - 8080
+        environment:
+            TZ: ${TIME_ZONE:-America/Fortaleza}
+            DOMAIN: ${DOMAIN}
+            HTTPS_PORT: ${WEBSERVER_PORT_HTTPS}
+            TRAEFIK_WHITELIST_IP_DASHBOARD: ${TRAEFIK_WHITELIST_IP_DASHBOARD:-127.0.0.1/32}
+        security_opt:
+            - "no-new-privileges:true" # https://docs.docker.com/engine/reference/run/#security-configuration
+        networks:
+            traefik_network:
+        # Graceful shutdown
+        stop_grace_period: 120s
+        secrets:
+            - source: cert.pem
+              target: /certs/cert.pem
+            - source: privkey.pem
+              target: /certs/privkey.pem
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - ${DOCKER_TRAEFIK_PATH}:/etc/traefik
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "5m"
+                max-file: "5"
+                mode: "non-blocking"
+                tag: "logging-traefik"
+
+    # # make docker-up context=traefik version=v0 service=traefik.whoami scale=2 services=traefik.whoami
+    # traefik.whoami:
+    #     image: traefik/whoami:v1.6.1
+    #     # hostname: traefik.whoami
+    #     # container_name: traefik.whoami
+    #     networks:
+    #         traefik_network:
+    #     labels:
+    #         - "traefik.enable=true"
+    #         - "traefik.tags=public"
+    #         - "traefik.http.routers.traefik-whoami-rtr.rule=Host(`whoami.${DOMAIN}`)"
+    #         - "traefik.http.routers.traefik-whoami-rtr.entrypoints=websecure"
+    #         - "traefik.http.routers.traefik-whoami-rtr.tls=true"
+    #         - "traefik.http.routers.traefik-whoami-rtr.service=traefik-whoami-svc"
+    #         - "traefik.http.services.traefik-whoami-svc.loadbalancer.server.port=80"
+    #         - "traefik.http.services.traefik-whoami-svc.loadbalancer.server.scheme=http"
+    #         - "traefik.http.services.traefik-whoami-svc.loadbalancer.passhostheader=true"

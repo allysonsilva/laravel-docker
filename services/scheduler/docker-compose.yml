@@ -1,0 +1,55 @@
+version: '3.8'
+
+volumes:
+    scheduler_logs:
+
+networks:
+    external_network:
+        external: true
+        name: ${DEFAULT_DOCKER_NETWORK}
+
+services:
+
+    scheduler:
+        user: root
+        image: ${SCHEDULER_IMAGE}
+        hostname: ${CONTAINER_NAME_PREFIX}_scheduler
+        container_name: ${CONTAINER_NAME_PREFIX}_scheduler
+        # # docker-compose --file ./services/scheduler/docker-compose.yml --ansi=auto --env-file .env build scheduler
+        build:
+            context: ${ROOT_PATH}
+            dockerfile: ${LOCAL_DOCKER_FOLDER}/php/Dockerfile
+            args:
+                APP_ENV: production
+                USER_UID: ${USER_UID}
+                USER_GID: ${USER_GID}
+                REMOTE_SRC: ${SCHEDULER_PATH_SRC}
+                LOCAL_APP_FOLDER: ${SCHEDULER_LOCAL_FOLDER}
+                LOCAL_DOCKER_FOLDER: ${LOCAL_DOCKER_FOLDER}
+        working_dir: ${SCHEDULER_PATH_SRC}
+        env_file:
+            - .env.container
+        environment:
+            # # Container ENVs
+            REMOTE_SRC: ${SCHEDULER_PATH_SRC}
+        volumes:
+            # - ${ROOT_PATH}/${SCHEDULER_LOCAL_FOLDER}:${SCHEDULER_PATH_SRC}:delegated
+            - ${DOCKER_PATH}/php/docker-entrypoint.sh:/entrypoint.sh:ro
+            - type: volume
+              source: scheduler_logs
+              target: /usr/local/var/log
+        ports:
+            - 8000
+        # Graceful shutdown
+        stop_signal: SIGQUIT
+        stop_grace_period: 120s
+        networks:
+            external_network:
+                # ipv4_address: 172.20.1.4
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "1m"
+                max-file: "5"
+                mode: "non-blocking"
+                tag: "logging-scheduler"
